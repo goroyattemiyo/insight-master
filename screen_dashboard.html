@@ -61,6 +61,7 @@ App.renderDashboardContent = function() {
         '<button id="exportFollowerCSV" class="btn btn-secondary btn-small" style="flex:1;">📥 CSV</button>' +
         '<button id="exportFollowerImg" class="btn btn-secondary btn-small" style="flex:1;">📷 画像保存</button>' +
       '</div>' +
+      '<div class="mt-8"><button id="setupFollowerTriggerBtn" class="btn btn-secondary btn-full btn-small">⏰ 毎日自動記録を有効にする</button></div>' +
     '</div>' +
     '<div id="demographicsArea"></div>' +
     '<div id="summaryArea"></div>' +
@@ -78,6 +79,17 @@ App.renderDashboardContent = function() {
         '<button id="aiSuggestBtn" class="btn btn-small btn-secondary" style="flex:1;min-width:140px;">💡 改善提案</button>' +
       '</div>' +
       '<div id="aiDashboardResult" style="margin-top:12px;"></div>' +
+    '</div>' +
+    '<div class="card">' +
+      '<div class="flex-row gap-8 mb-12">' +
+        '<div class="card-title" style="flex:1;">📋 週次レポート</div>' +
+        '<button id="setupWeeklyTriggerBtn" class="btn btn-secondary btn-small">⏰ 自動生成</button>' +
+      '</div>' +
+      '<div id="weeklyReportArea">' +
+        '<button id="generateWeeklyBtn" class="btn btn-primary btn-full mb-8">📋 今週のレポートを生成</button>' +
+        '<div id="weeklyReportContent"></div>' +
+        '<div id="weeklyReportList" class="mt-12"></div>' +
+      '</div>' +
     '</div>' +
   '</div>';
 };
@@ -142,6 +154,9 @@ App.loadDashboard = async function() {
       self.dashboardRunAI_('generateImprovementSuggestions', '💡 改善提案生成中...', this);
     });
   }
+
+  this.bindWeeklyReportEvents_();
+  this.loadWeeklyReportList_();
 };
 
 App.loadDashboardData_ = async function() {
@@ -521,5 +536,116 @@ App.bindFollowerChartEvents_ = function() {
   if (imgBtn) imgBtn.addEventListener('click', function() {
     self.exportAsImage('followerCanvas', 'followers_chart');
   });
+
+  var triggerBtn = document.getElementById('setupFollowerTriggerBtn');
+  if (triggerBtn) triggerBtn.addEventListener('click', async function() {
+    triggerBtn.disabled = true;
+    triggerBtn.textContent = '設定中...';
+    try {
+      var r = await self.api('setupFollowerTrigger', {});
+      self.showToast(r.message || 'トリガーを設定しました', 'success');
+      triggerBtn.textContent = '✅ 自動記録が有効です';
+    } catch (e) {
+      self.showToast('設定エラー: ' + e.message, 'error');
+      triggerBtn.disabled = false;
+      triggerBtn.textContent = '⏰ 毎日自動記録を有効にする';
+    }
+  });
+};
+
+// === 週次レポート ===
+
+App.bindWeeklyReportEvents_ = function() {
+  var self = this;
+  var genBtn = document.getElementById('generateWeeklyBtn');
+  if (genBtn) genBtn.addEventListener('click', async function() {
+    genBtn.disabled = true;
+    genBtn.textContent = '生成中（30秒〜1分）...';
+    try {
+      var r = await self.api('generateWeeklyReport', {});
+      if (r.message) { self.showToast(r.message, 'info'); }
+      else { self.showToast('週次レポートを生成しました', 'success'); }
+      self.renderWeeklyReport_(r);
+      self.loadWeeklyReportList_();
+    } catch (e) { self.showToast('生成エラー: ' + e.message, 'error'); }
+    genBtn.disabled = false;
+    genBtn.textContent = '📋 今週のレポートを生成';
+  });
+
+  var trigBtn = document.getElementById('setupWeeklyTriggerBtn');
+  if (trigBtn) trigBtn.addEventListener('click', async function() {
+    trigBtn.disabled = true;
+    try {
+      var r = await self.api('setupWeeklyTrigger', {});
+      self.showToast(r.message || '設定しました', 'success');
+      trigBtn.textContent = '✅ 自動生成ON';
+    } catch (e) {
+      self.showToast('設定エラー: ' + e.message, 'error');
+      trigBtn.disabled = false;
+    }
+  });
+};
+
+App.renderWeeklyReport_ = function(data) {
+  var el = document.getElementById('weeklyReportContent');
+  if (!el || !data) return;
+  if (data.message && !data.summary) {
+    el.innerHTML = '<div class="text-caption">' + this.escapeHtml(data.message) + '</div>';
+    return;
+  }
+  var s = data.summary || {};
+  var f = data.followers || {};
+  var fSign = f.change >= 0 ? '+' : '';
+  var html = '<div class="text-caption mb-8">' + this.escapeHtml(data.weekStart || '') + ' 〜 ' + this.escapeHtml(data.weekEnd || '') + '</div>';
+  html += '<div class="metric-grid">' +
+    this.renderMetricCard('👥', 'フォロワー', (f.end || 0) + ' (' + fSign + (f.change || 0) + ')') +
+    this.renderMetricCard('👁', '総ビュー', s.totalViews) +
+    this.renderMetricCard('📈', '平均ER', (s.avgEngagementRate || 0) + '%') +
+    this.renderMetricCard('📝', '投稿数', s.totalPosts) +
+  '</div>';
+  if (data.topPosts && data.topPosts.length > 0) {
+    html += '<div class="text-subheading mt-12 mb-8">🏆 TOP投稿</div>';
+    data.topPosts.forEach(function(p) {
+      html += '<div style="padding:8px;background:var(--bg-secondary);border-radius:8px;margin-bottom:6px;font-size:13px;">' +
+        '<span style="color:var(--success);font-weight:700;">ER ' + (p.er || 0).toFixed(1) + '%</span> ' +
+        this.escapeHtml(p.text || '') + '</div>';
+    }.bind(this));
+  }
+  if (data.aiSummary) {
+    html += '<div class="mt-12"><div class="text-subheading mb-8">🤖 AI分析</div>' +
+      '<div class="ai-result-container">' + this.formatMarkdown_(data.aiSummary) + '</div></div>';
+  }
+  el.innerHTML = html;
+};
+
+App.loadWeeklyReportList_ = async function() {
+  var self = this;
+  var listEl = document.getElementById('weeklyReportList');
+  if (!listEl) return;
+  try {
+    var list = await this.api('getWeeklyReportList', {});
+    if (!list || list.length === 0) {
+      listEl.innerHTML = '<div class="text-caption">過去のレポートはありません</div>';
+      return;
+    }
+    var html = '<div class="text-subheading mb-8">過去のレポート</div>';
+    list.slice(0, 8).forEach(function(item, idx) {
+      html += '<div class="flex-row gap-8 mb-6" style="padding:8px;background:var(--bg-secondary);border-radius:6px;cursor:pointer;" data-week-offset="' + idx + '">' +
+        '<div style="flex:1;"><div class="text-body">' + item.weekStart + ' 〜 ' + item.weekEnd + '</div>' +
+        '<div class="text-caption">' + (item.postCount || 0) + '投稿 / ER ' + (item.avgER || 0) + '% / フォロワー ' + (item.followersChange >= 0 ? '+' : '') + (item.followersChange || 0) + '</div></div>' +
+        '<span class="text-caption">›</span></div>';
+    });
+    listEl.innerHTML = html;
+    listEl.querySelectorAll('[data-week-offset]').forEach(function(el) {
+      el.addEventListener('click', async function() {
+        var offset = parseInt(this.getAttribute('data-week-offset'), 10);
+        try {
+          var report = await self.api('getWeeklyReport', { weekOffset: offset });
+          if (report) self.renderWeeklyReport_(report);
+        } catch (e) { self.showToast('取得エラー: ' + e.message, 'error'); }
+      });
+    });
+  } catch (e) { console.error('loadWeeklyReportList_ error:', e); }
 };
 </script>
+

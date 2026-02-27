@@ -262,6 +262,11 @@ function processApiRequest(params) {
       case 'getFollowerHistory':      result = getFollowerHistory(params.days); break;
       case 'setupFollowerTrigger':    result = setupFollowerTrigger(); break;
       case 'recordDailyFollowers':    result = recordDailyFollowers(); break;
+      // Weekly Report
+      case 'generateWeeklyReport':   result = generateWeeklyReport(ss); break;
+      case 'getWeeklyReport':        result = getWeeklyReport(params.weekOffset); break;
+      case 'getWeeklyReportList':    result = getWeeklyReportList(); break;
+      case 'setupWeeklyTrigger':     result = setupWeeklyTrigger(); break;
       // Keyword Search
       case 'searchKeyword':           result = searchKeyword(ss, params); break;
       case 'getSearchHistory':        result = getSearchHistory(ss); break;
