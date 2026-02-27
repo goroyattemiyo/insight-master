@@ -1,0 +1,597 @@
+<script>
+// ===========================================
+// 分析ハブ（投稿分析 / 時間帯 / 競合）
+// ===========================================
+App.renderAnalyticsContent = function() {
+  var tab = this.state.analyticsTab || 'posts';
+  return '<div class="screen-content">' +
+    '<div class="subtabs" data-group="analytics">' +
+      '<button class="subtab' + (tab === 'posts' ? ' active' : '') + '" data-group="analytics" data-tab="posts">投稿分析</button>' +
+      '<button class="subtab' + (tab === 'time' ? ' active' : '') + '" data-group="analytics" data-tab="time">時間帯</button>' +
+      '<button class="subtab' + (tab === 'competitor' ? ' active' : '') + '" data-group="analytics" data-tab="competitor">競合</button>' +
+    '</div>' +
+    '<div class="subtab-panels">' +
+      '<div id="analytics-tab-posts" class="subtab-panel' + (tab === 'posts' ? ' active' : '') + '">' +
+        this.renderAnalyticsDetailContent() +
+      '</div>' +
+      '<div id="analytics-tab-time" class="subtab-panel' + (tab === 'time' ? ' active' : '') + '">' +
+      '</div>' +
+      '<div id="analytics-tab-competitor" class="subtab-panel' + (tab === 'competitor' ? ' active' : '') + '">' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+};
+
+App.renderAnalyticsDetailContent = function() {
+  return '<div>' +
+    '<div class="card"><div class="card-title">投稿パフォーマンス一覧</div>' +
+      '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
+        '<button class="btn btn-small period-btn active" data-period="7">7日</button>' +
+        '<button class="btn btn-small period-btn" data-period="30">30日</button>' +
+        '<button class="btn btn-small period-btn" data-period="all">全期間</button></div>' +
+      '<div id="postListArea">' + this.renderSkeletonPostList() + '</div></div>' +
+      this.renderTips([
+        { title: '📊 ER（エンゲージメント率）とは？', body: 'ER ＝（いいね＋返信＋リポスト＋引用）÷ ビュー数 × 100。つまり「見た人のうち何%が反応したか」を示す数字です。<br>目安: <b>1%未満</b>=改善の余地あり / <b>1〜3%</b>=平均的 / <b>3〜6%</b>=優秀 / <b>6%超</b>=バズ投稿。各投稿の右下 📈 の数字がERです。' },
+        { title: '📋 投稿一覧の分析ポイント', body: '① 📈の数字（ER）が高い投稿を探す<br>② 共通点を見つける（テーマ？文体？投稿時間？絵文字？）<br>③ その法則を次の投稿に活かす<br>④ ERが低い投稿も確認して「避けるパターン」を把握する' },
+        { title: '📅 期間フィルタの使い分け', body: '<b>7日</b>: 直近のトレンド確認（毎日チェック用）<br><b>30日</b>: 月次レポート・全体傾向の把握<br><b>全期間</b>: これまでの全投稿を振り返り、ベスト投稿を発見' }
+      ]) +
+  '</div>';
+};
+
+App.renderTimeAnalysisContent_ = function() {
+  return '<div>' +
+    '<div class="card"><div class="card-title">最適投稿時間帯（ヒートマップ）</div>' +
+      '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">緑＝高エンゲージ / 赤＝低エンゲージ（平均ER%）</p>' +
+      '<div id="heatmapArea"><div class="loading"><div class="loading-spinner"></div></div></div></div>' +
+      this.renderTips([
+      { title: '🕐 投稿時間ヒートマップの読み方', body: '色が<span style="color:var(--success);font-weight:600;">濃い緑</span>ほど反応が良い時間帯。<span style="color:var(--warning);font-weight:600;">黄色</span>は中程度、<span style="color:var(--error);font-weight:600;">赤</span>は低め。最も緑が濃い曜日×時間が「ゴールデンタイム」＝投稿すべきベストタイミングです。' },
+        { title: '🤖 分析データ → AI生成の流れ', body: 'この画面でゴールデンタイムを把握したら、「作成」タブの「📊 分析ベース」モードでデータを活用してみましょう。' }
+      ]) +
+  '</div>';
+};
+
+App.loadAnalytics = function() {
+  var self = this;
+  var saved = localStorage.getItem('insight_master_subtab_analytics');
+  var tab = saved || this.state.analyticsTab || 'posts';
+  this.timeLoaded_ = false;
+  this.compLoaded_ = false;
+  document.querySelectorAll('.subtab[data-group="analytics"]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      self.switchAnalyticsTab_(this.getAttribute('data-tab'));
+    });
+  });
+  this.switchAnalyticsTab_(tab, true);
+  this.loadAnalyticsDetail();
+};
+
+App.switchAnalyticsTab_ = function(tab, silent) {
+  this.state.analyticsTab = tab;
+  localStorage.setItem('insight_master_subtab_analytics', tab);
+  document.querySelectorAll('.subtab[data-group="analytics"]').forEach(function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+  });
+  var panels = ['posts','time','competitor'];
+  panels.forEach(function(t) {
+    var el = document.getElementById('analytics-tab-' + t);
+    if (el) el.classList.toggle('active', t === tab);
+  });
+  if (tab === 'time') {
+    var timePanel = document.getElementById('analytics-tab-time');
+    if (timePanel && timePanel.innerHTML.trim() === '') {
+      timePanel.innerHTML = this.renderTimeAnalysisContent_();
+    }
+    if (!this.timeLoaded_) {
+      this.timeLoaded_ = true;
+      this.loadHeatmap_();
+    }
+  }
+  if (tab === 'competitor') {
+    var compPanel = document.getElementById('analytics-tab-competitor');
+    if (compPanel && compPanel.innerHTML.trim() === '') {
+      compPanel.innerHTML = this.renderCompetitorContent();
+    }
+    if (!this.compLoaded_) {
+      this.compLoaded_ = true;
+      this.loadCompetitor();
+    }
+  }
+  if (!silent) {
+    this.bindTipsEvents();
+  }
+};
+
+App.loadAnalyticsDetail = async function() {
+  var self = this;
+  document.querySelectorAll('.period-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      var p = this.getAttribute('data-period');
+      // ★SKELETON: 切替時にもスケルトン表示
+      document.getElementById('postListArea').innerHTML = self.renderSkeletonPostList();
+      self.loadPostList_(p === 'all' ? 'all' : parseInt(p));
+    });
+  });
+  await this.loadPostList_(7);
+};
+
+App.loadPostList_ = async function(periodDays) {
+  var c = document.getElementById('postListArea');
+  try {
+    var data = await this.api('getAnalyticsData', { periodDays: periodDays });
+    if (!data || !data.posts || data.posts.length === 0) {
+      c.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">データなし。ダッシュボードで「データを更新」してください。</div>';
+      return;
+    }
+    var posts = data.posts || [];
+    var chunkSize = 20;
+    var initialCount = Math.min(chunkSize, posts.length);
+    var html = '<div id="postListScroll" class="scrollable-500">';
+    html += this.renderPostListItems_(posts, 0, initialCount);
+    html += '</div>';
+    if (posts.length > initialCount) {
+      html += '<button id="postListMoreBtn" class="btn btn-secondary btn-full" style="margin-top:10px;">もっと見る（残り ' + (posts.length - initialCount) + ' 件）</button>';
+    }
+    if (data.summary) {
+      html += '<div style="margin-top:12px;padding:14px;background:var(--bg-tertiary);border-radius:10px;font-size:13px;color:var(--text-secondary);">' +
+        '合計: ' + data.summary.totalPosts + '件 / 平均ER: ' + data.summary.avgEngagementRate + '% / 総ビュー: ' + (data.summary.totalViews||0).toLocaleString() + '</div>';
+    }
+    c.innerHTML = html;
+    this.postListState_ = { posts: posts, offset: initialCount, chunkSize: chunkSize };
+    var scrollArea = document.getElementById('postListScroll');
+    if (scrollArea) this.bindPostLinkEvents_(scrollArea);
+    var self = this;
+    var moreBtn = document.getElementById('postListMoreBtn');
+    if (moreBtn) {
+      moreBtn.addEventListener('click', function() {
+        var state = self.postListState_;
+        if (!state || !state.posts) return;
+        var start = state.offset;
+        var end = Math.min(state.offset + state.chunkSize, state.posts.length);
+        var list = document.getElementById('postListScroll');
+        if (list) {
+          list.insertAdjacentHTML('beforeend', self.renderPostListItems_(state.posts, start, end));
+          self.bindPostLinkEvents_(list);
+        }
+        state.offset = end;
+        var remaining = state.posts.length - state.offset;
+        if (remaining > 0) {
+          this.textContent = 'もっと見る（残り ' + remaining + ' 件）';
+        } else {
+          this.remove();
+        }
+      });
+    }
+  } catch (e) {
+    c.innerHTML = '<div style="color:var(--error);text-align:center;">取得エラー: ' + App.escapeHtml(e.message) + '</div>';
+  }
+};
+
+App.renderPostListItems_ = function(posts, start, end) {
+  var html = '';
+  for (var i = start; i < end; i++) {
+    var p = posts[i];
+    var date = p.timestamp ? new Date(p.timestamp).toLocaleDateString('ja-JP') : '';
+    html += '<div class="post-card">' +
+      (p.permalink ? '<div class="post-link" data-link="' + p.permalink + '">🔗</div>' : '') +
+      '<div class="post-text">' + App.escapeHtml(p.text) + '</div>' +
+      '<div class="post-meta">' + date + ' | ' + (p.mediaType || 'TEXT') + '</div>' +
+      '<div class="post-metrics">' +
+        '<span class="post-metric"><span class="post-metric-icon">👁</span>' + (p.views||0).toLocaleString() + '</span>' +
+        '<span class="post-metric post-metric-like"><span class="post-metric-icon">❤️</span>' + (p.likes||0) + '</span>' +
+        '<span class="post-metric"><span class="post-metric-icon">💬</span>' + (p.replies||0) + '</span>' +
+        '<span class="post-metric"><span class="post-metric-icon">🔄</span>' + (p.reposts||0) + '</span>' +
+        '<span class="er-badge"><span class="post-metric-icon">📈</span>' + (p.engagementRate||0) + '%</span>' +
+      '</div></div>';
+  }
+  return html;
+};
+
+App.bindPostLinkEvents_ = function(container) {
+  container.querySelectorAll('.post-link').forEach(function(btn) {
+    if (btn.dataset.bound) return;
+    btn.dataset.bound = 'true';
+    btn.addEventListener('click', function() {
+      var link = this.getAttribute('data-link');
+      if (link) window.open(link, '_blank');
+    });
+  });
+};
+
+App.loadHeatmap_ = async function() {
+  var c = document.getElementById('heatmapArea');
+  if (!c) return;
+  try {
+    var data = await this.api('getTimeAnalysisData', {});
+    if (!data || !data.hasData) {
+      c.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">時間帯分析データなし</div>'; return;
+    }
+    var days = ['日曜','月曜','火曜','水曜','木曜','金曜','土曜'];
+    var allV = [];
+    days.forEach(function(d) { if (data.matrix[d]) for (var h=0;h<24;h++) { var v=data.matrix[d][h]; if(v>0)allV.push(v); } });
+    var maxV = allV.length > 0 ? Math.max.apply(null, allV) : 1;
+    var html = '<div class="scrollable-500"><div style="overflow-x:auto;"><table class="heatmap-table">';
+    html += '<tr><th class="heatmap-head"></th>';
+    for (var h=0;h<24;h++) html += '<th class="heatmap-hour">' + h + '</th>';
+    html += '</tr>';
+    days.forEach(function(day) {
+      html += '<tr><td class="heatmap-day">' + day + '</td>';
+      for (var h=0;h<24;h++) {
+        var val = (data.matrix[day] && data.matrix[day][h]) ? data.matrix[day][h] : 0;
+        var bg = 'var(--bg-tertiary)';
+        if (val > 0 && maxV > 0) {
+          var ratio = val / maxV;
+          var r = Math.round(255*(1-ratio)), g = Math.round(200*ratio+55);
+          bg = 'rgb('+r+','+g+',100)';
+        }
+        html += '<td class="heatmap-cell ' + (val>0 ? 'has-value' : 'no-value') + '" style="background:' + bg + ';" title="'+day+' '+h+'時: '+val+'%">'+(val>0?val:'')+'</td>';
+      }
+      html += '</tr>';
+    });
+    html += '</table></div></div>';
+    c.innerHTML = html;
+  } catch (e) {
+    c.innerHTML = '<div style="color:var(--error);text-align:center;">ヒートマップエラー</div>';
+  }
+};
+
+
+// ===========================================
+// 競合ウォッチ画面
+// ===========================================
+App.renderCompetitorContent = function() {
+  return '<div>' +
+    this.renderTips([
+      { title: '🔍 Grounding検索とは', body: 'Gemini AIがGoogle検索を実行し、Threads上の公開投稿やトレンドを調査します。Threads APIのAdvanced Accessは不要です。' },
+      { title: '📋 手動記録のコツ', body: '競合の投稿をThreadsアプリで見ながら、テキストをコピペ＋数値を入力。「バズ」タグを付けると、後でバズパターン分析に使えます。' },
+      { title: '🤖 AI分析の精度', body: '記録投稿が多いほど分析精度が上がります。1競合あたり10件以上がおすすめ。' }
+    ]) +
+    // タブUI
+    '<div class="card" style="padding:0;overflow:hidden;">' +
+      '<div id="compTabs" style="display:flex;border-bottom:1px solid var(--border-color);">' +
+        '<button class="comp-tab active" data-tab="search" style="flex:1;padding:12px;border:none;background:none;font-weight:600;font-size:13px;cursor:pointer;border-bottom:2px solid var(--primary-color);">🔍 検索</button>' +
+        '<button class="comp-tab" data-tab="record" style="flex:1;padding:12px;border:none;background:none;font-weight:600;font-size:13px;cursor:pointer;color:var(--text-secondary);">📋 記録</button>' +
+        '<button class="comp-tab" data-tab="list" style="flex:1;padding:12px;border:none;background:none;font-weight:600;font-size:13px;cursor:pointer;color:var(--text-secondary);">📊 一覧</button>' +
+        '<button class="comp-tab" data-tab="analysis" style="flex:1;padding:12px;border:none;background:none;font-weight:600;font-size:13px;cursor:pointer;color:var(--text-secondary);">🤖 分析</button>' +
+      '</div>' +
+      '<div id="compTabContent" class="screen-content"></div>' +
+    '</div>' +
+  '</div>';
+};
+
+App.loadCompetitor = function() {
+  var self = this;
+  this.compState_ = { competitors: [], posts: [], activeTab: 'search' };
+  // タブ切替
+  document.querySelectorAll('.comp-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      self.compSwitchTab_(this.getAttribute('data-tab'));
+    });
+  });
+  // 競合一覧をロード
+  this.api('getCompetitors', {}).then(function(data) {
+    self.compState_.competitors = data || [];
+    self.compRenderTab_('search');
+  }).catch(function() {
+    self.compRenderTab_('search');
+  });
+};
+
+App.compSwitchTab_ = function(tab) {
+  this.compState_.activeTab = tab;
+  document.querySelectorAll('.comp-tab').forEach(function(t) {
+    var isActive = t.getAttribute('data-tab') === tab;
+    t.classList.toggle('active', isActive);
+    t.style.borderBottom = isActive ? '2px solid var(--primary-color)' : '2px solid transparent';
+    t.style.color = isActive ? 'var(--text-primary)' : 'var(--text-secondary)';
+  });
+  this.compRenderTab_(tab);
+};
+
+App.compRenderTab_ = function(tab) {
+  var c = document.getElementById('compTabContent');
+  if (!c) return;
+  switch (tab) {
+    case 'search':   c.innerHTML = this.compSearchUI_(); this.compBindSearch_(); break;
+    case 'record':   c.innerHTML = this.compRecordUI_(); this.compBindRecord_(); break;
+    case 'list':     this.compLoadList_(c); break;
+    case 'analysis': c.innerHTML = this.compAnalysisUI_(); this.compBindAnalysis_(); break;
+  }
+};
+
+// --- 検索タブ ---
+App.compSearchUI_ = function() {
+  var compOpts = '<option value="">指定なし</option>';
+  (this.compState_.competitors || []).forEach(function(c) {
+    var name = c.username || '';
+    compOpts += '<option value="' + App.escapeAttr(name) + '">@' + App.escapeHtml(name) + '</option>';
+  });
+  return '<div class="mb-16">' +
+    '<label class="form-label">検索キーワード</label>' +
+    '<input type="text" id="compSearchQuery" class="input" placeholder="例: AI副業, Threads運用">' +
+  '</div>' +
+  '<div class="mb-16">' +
+    '<label class="form-label">対象アカウント（任意）</label>' +
+    '<div class="btn-group">' +
+      '<select id="compSearchTarget" class="input" style="flex:1;">' + compOpts + '</select>' +
+      '<input type="text" id="compSearchTargetCustom" class="input" style="flex:1;" placeholder="または @名を入力">' +
+    '</div>' +
+  '</div>' +
+  '<button id="compSearchBtn" class="btn btn-primary btn-full">🔍 Grounding検索</button>' +
+  '<div id="compSearchResult" class="mt-16"></div>';
+};
+
+App.compBindSearch_ = function() {
+  var self = this;
+  document.getElementById('compSearchBtn').addEventListener('click', function() {
+    var query = document.getElementById('compSearchQuery').value.trim();
+    if (!query) { self.showToast('キーワードを入力してください', 'error'); return; }
+    var target = document.getElementById('compSearchTarget').value || document.getElementById('compSearchTargetCustom').value.trim().replace(/^@/, '');
+    var btn = this;
+    btn.disabled = true; btn.textContent = '検索中（15〜30秒）...';
+    var resultDiv = document.getElementById('compSearchResult');
+    resultDiv.innerHTML = '<div style="text-align:center;padding:20px;"><div class="loading-spinner" style="margin:0 auto 12px;"></div><div class="text-caption">Gemini AIがGoogle検索中...</div></div>';
+    self.api('searchCompetitorByGrounding', { query: query, searchTarget: target }).then(function(res) {
+      btn.disabled = false; btn.textContent = '🔍 Grounding検索';
+      var html = '<div class="ai-result-container">' +
+        self.formatMarkdown_(res.report) + '</div>';
+      if (res.sources && res.sources.length > 0) {
+        html += '<div style="margin-top:12px;font-size:11px;color:var(--text-secondary);">' +
+          '<div style="font-weight:600;margin-bottom:4px;">📎 参考ソース:</div>';
+        res.sources.forEach(function(s) {
+          html += '<div><a href="' + self.escapeAttr(s.uri) + '" target="_blank" style="color:var(--link-color);">' + self.escapeHtml(s.title || s.uri) + '</a></div>';
+        });
+        html += '</div>';
+      }
+      resultDiv.innerHTML = html;
+    }).catch(function(err) {
+      btn.disabled = false; btn.textContent = '🔍 Grounding検索';
+      resultDiv.innerHTML = '<div style="color:var(--error);font-size:13px;padding:12px;">' + self.escapeHtml(err.message) + '</div>';
+    });
+  });
+};
+
+// --- 記録タブ ---
+App.compRecordUI_ = function() {
+  var compOpts = '<option value="">-- 選択 or 新規入力 --</option>';
+  (this.compState_.competitors || []).forEach(function(c) {
+    var name = c.username || '';
+    compOpts += '<option value="' + App.escapeAttr(name) + '">@' + App.escapeHtml(name) + '</option>';
+  });
+  return '<div class="mb-12">' +
+    '<label class="form-label">競合ユーザー名</label>' +
+    '<div class="btn-group">' +
+      '<select id="compRecordUser" class="input" style="flex:1;">' + compOpts + '</select>' +
+      '<input type="text" id="compRecordUserNew" class="input" style="flex:1;" placeholder="@username">' +
+    '</div>' +
+  '</div>' +
+  '<div class="mb-12">' +
+    '<label class="form-label">投稿テキスト（コピペ）</label>' +
+    '<textarea id="compRecordText" class="input" rows="5" placeholder="競合の投稿をここに貼り付け"></textarea>' +
+  '</div>' +
+  '<div class="grid-3 mb-12">' +
+    '<div><label class="form-label-small">いいね</label><input type="number" id="compRecordLikes" class="input" value="0" min="0"></div>' +
+    '<div><label class="form-label-small">返信</label><input type="number" id="compRecordReplies" class="input" value="0" min="0"></div>' +
+    '<div><label class="form-label-small">リポスト</label><input type="number" id="compRecordReposts" class="input" value="0" min="0"></div>' +
+  '</div>' +
+  '<div class="grid-2 mb-12">' +
+    '<div><label class="form-label-small">メディア</label>' +
+      '<select id="compRecordMedia" class="input"><option value="TEXT">テキスト</option><option value="IMAGE">画像</option><option value="VIDEO">動画</option><option value="CAROUSEL">カルーセル</option></select></div>' +
+    '<div><label class="form-label-small">投稿日</label><input type="date" id="compRecordDate" class="input"></div>' +
+  '</div>' +
+  '<div class="mb-12">' +
+    '<label class="form-label-small">タグ（カンマ区切り: バズ, 参考, 定番 等）</label>' +
+    '<input type="text" id="compRecordTags" class="input" placeholder="バズ, 参考">' +
+  '</div>' +
+  '<div class="mb-16">' +
+    '<label class="form-label-small">投稿URL（任意）</label>' +
+    '<input type="text" id="compRecordUrl" class="input" placeholder="https://www.threads.net/...">' +
+  '</div>' +
+  '<button id="compRecordSaveBtn" class="btn btn-primary btn-full">💾 記録を保存</button>';
+};
+
+App.compBindRecord_ = function() {
+  var self = this;
+  var usernamePattern = /^[a-zA-Z0-9._]{1,30}$/;
+  // 今日の日付をデフォルト
+  var dateInput = document.getElementById('compRecordDate');
+  if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+  document.getElementById('compRecordSaveBtn').addEventListener('click', function() {
+    var username = document.getElementById('compRecordUser').value || document.getElementById('compRecordUserNew').value.trim().replace(/^@/, '');
+    var text = document.getElementById('compRecordText').value.trim();
+    if (!username) { self.showToast('ユーザー名を入力してください', 'error'); return; }
+    if (!usernamePattern.test(username)) { self.showToast('ユーザー名の形式が正しくありません', 'error'); return; }
+    if (!text) { self.showToast('投稿テキストを入力してください', 'error'); return; }
+    var btn = this;
+    btn.disabled = true; btn.textContent = '保存中...';
+    self.api('saveWatchPost', {
+      competitorUsername: username,
+      postText: text,
+      likes: document.getElementById('compRecordLikes').value,
+      replies: document.getElementById('compRecordReplies').value,
+      reposts: document.getElementById('compRecordReposts').value,
+      mediaType: document.getElementById('compRecordMedia').value,
+      postDate: document.getElementById('compRecordDate').value,
+      tags: document.getElementById('compRecordTags').value,
+      postUrl: document.getElementById('compRecordUrl').value
+    }).then(function(res) {
+      btn.disabled = false; btn.textContent = '💾 記録を保存';
+      self.showToast('@' + res.username + ' の投稿を記録しました', 'success');
+      // フォームリセット
+      document.getElementById('compRecordText').value = '';
+      document.getElementById('compRecordLikes').value = '0';
+      document.getElementById('compRecordReplies').value = '0';
+      document.getElementById('compRecordReposts').value = '0';
+      document.getElementById('compRecordTags').value = '';
+      document.getElementById('compRecordUrl').value = '';
+      // 競合リスト更新
+      self.api('getCompetitors', {}).then(function(d) { self.compState_.competitors = d || []; });
+    }).catch(function(err) {
+      btn.disabled = false; btn.textContent = '💾 記録を保存';
+      self.showToast(err.message, 'error');
+    });
+  });
+};
+
+// --- 一覧タブ ---
+App.compLoadList_ = function(container) {
+  var self = this;
+  container.innerHTML = '<div style="text-align:center;padding:20px;"><div class="loading-spinner" style="margin:0 auto 12px;"></div></div>';
+  Promise.all([
+    this.api('getCompetitors', {}),
+    this.api('getWatchPosts', {})
+  ]).then(function(results) {
+    self.compState_.competitors = results[0] || [];
+    self.compState_.posts = results[1] || [];
+    container.innerHTML = self.compListUI_();
+    self.compBindList_();
+  }).catch(function(err) {
+    container.innerHTML = '<div style="color:var(--error);padding:12px;">' + self.escapeHtml(err.message) + '</div>';
+  });
+};
+
+App.compListUI_ = function() {
+  var comps = this.compState_.competitors || [];
+  var posts = this.compState_.posts || [];
+  var esc = App.escapeHtml;
+  if (comps.length === 0 && posts.length === 0) {
+    return '<div style="text-align:center;padding:30px;color:var(--text-secondary);">' +
+      '<div style="font-size:40px;margin-bottom:12px;">📋</div>' +
+      '<div>まだ競合が登録されていません</div>' +
+      '<div style="font-size:12px;margin-top:8px;">「記録」タブから投稿を追加すると自動登録されます</div></div>';
+  }
+  var html = '';
+  // 競合アカウントカード
+  if (comps.length > 0) {
+    html += '<div style="font-weight:600;font-size:14px;margin-bottom:12px;">👥 競合アカウント（' + comps.length + '）</div>';
+    comps.forEach(function(c) {
+      var name = esc(c.username || '');
+      var displayName = esc(c.displayName || '');
+      var category = esc(c.category || '');
+      html += '<div style="padding:12px;background:var(--bg-secondary);border-radius:10px;margin-bottom:8px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<div><span style="font-weight:600;">@' + name + '</span>' +
+            (displayName ? ' <span style="color:var(--text-secondary);font-size:12px;">' + displayName + '</span>' : '') +
+            ' <span style="font-size:11px;padding:2px 8px;background:var(--link-soft);color:var(--link-color);border-radius:12px;">' + category + '</span></div>' +
+          '<button class="comp-delete-btn btn btn-small" data-id="' + c.competitorId + '" style="font-size:11px;padding:4px 8px;">🗑</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:var(--text-secondary);">' +
+          '<span>👥 ' + (c.followersCount || 0) + ' フォロワー</span>' +
+          '<span>📋 ' + (c.watchCount || 0) + ' 件記録</span>' +
+        '</div></div>';
+    });
+  }
+  // 最近の記録
+  if (posts.length > 0) {
+    html += '<div style="font-weight:600;font-size:14px;margin:16px 0 12px;">📝 最近の記録（' + posts.length + '件）</div>';
+    var display = posts.slice(0, 20);
+    display.forEach(function(p) {
+      var username = esc(p.competitorUsername || '');
+      var postDate = esc((p.postDate || '').substring(0, 10));
+      var postTextRaw = String(p.postText || '');
+      var postText = postTextRaw.substring(0, 200);
+      var postTextEsc = esc(postText);
+      var tags = esc(p.tags || '');
+      html += '<div style="padding:12px;background:var(--bg-secondary);border-radius:10px;margin-bottom:8px;">' +
+        '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);margin-bottom:6px;">' +
+          '<span>@' + username + '</span>' +
+          '<span>' + postDate + '</span>' +
+        '</div>' +
+        '<div style="font-size:13px;line-height:1.6;margin-bottom:8px;word-break:break-word;">' + postTextEsc + (postTextRaw.length > 200 ? '...' : '') + '</div>' +
+        '<div style="display:flex;gap:12px;font-size:11px;color:var(--text-secondary);">' +
+          '<span>❤️ ' + (p.likes || 0) + '</span>' +
+          '<span>💬 ' + (p.replies || 0) + '</span>' +
+          '<span>🔄 ' + (p.reposts || 0) + '</span>' +
+          (tags ? '<span style="padding:1px 6px;background:var(--tag-bg);color:var(--tag-text);border-radius:8px;">🏷 ' + tags + '</span>' : '') +
+        '</div>' +
+        '<button class="watch-delete-btn" data-id="' + p.watchId + '" style="font-size:11px;color:var(--error);background:none;border:none;cursor:pointer;margin-top:6px;">削除</button>' +
+      '</div>';
+    });
+  }
+  return html;
+};
+
+App.compBindList_ = function() {
+  var self = this;
+  document.querySelectorAll('.comp-delete-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (!confirm('この競合アカウントを削除しますか？')) return;
+      self.api('deleteCompetitor', { competitorId: this.getAttribute('data-id') }).then(function() {
+        self.showToast('削除しました', 'success');
+        self.compSwitchTab_('list');
+      }).catch(function(err) { self.showToast(err.message, 'error'); });
+    });
+  });
+  document.querySelectorAll('.watch-delete-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (!confirm('この記録を削除しますか？')) return;
+      self.api('deleteWatchPost', { watchId: this.getAttribute('data-id') }).then(function() {
+        self.showToast('削除しました', 'success');
+        self.compSwitchTab_('list');
+      }).catch(function(err) { self.showToast(err.message, 'error'); });
+    });
+  });
+};
+
+// --- 分析タブ ---
+App.compAnalysisUI_ = function() {
+  var compOpts = '<option value="">-- 全競合 --</option>';
+  (this.compState_.competitors || []).forEach(function(c) {
+    var name = c.username || '';
+    compOpts += '<option value="' + App.escapeAttr(name) + '">@' + App.escapeHtml(name) + ' (' + (c.watchCount || 0) + '件)</option>';
+  });
+  return '<div class="mb-16">' +
+    '<label class="form-label">分析対象</label>' +
+    '<select id="compAnalysisTarget" class="input">' + compOpts + '</select>' +
+  '</div>' +
+  '<div class="grid-2 mb-12">' +
+    '<button id="compStyleBtn" class="btn btn-secondary btn-small" style="padding:12px;">📝 スタイル分析</button>' +
+    '<button id="compVsSelfBtn" class="btn btn-secondary btn-small" style="padding:12px;">⚔️ 自分と比較</button>' +
+    '<button id="compBuzzBtn" class="btn btn-secondary btn-small" style="padding:12px;grid-column:1/-1;">🔥 バズパターン分析</button>' +
+  '</div>' +
+  '<div id="compAnalysisResult" class="mt-12"></div>';
+};
+
+App.compBindAnalysis_ = function() {
+  var self = this;
+  var resultDiv = function() { return document.getElementById('compAnalysisResult'); };
+  var showLoading = function(btn, msg) {
+    btn.disabled = true;
+    resultDiv().innerHTML = '<div style="text-align:center;padding:20px;"><div class="loading-spinner" style="margin:0 auto 12px;"></div><div class="text-caption">' + msg + '</div></div>';
+  };
+  var showResult = function(btn, origText, analysis) {
+    btn.disabled = false; btn.textContent = origText;
+    resultDiv().innerHTML = '<div class="ai-result-container">' +
+      self.formatMarkdown_(analysis) + '</div>';
+  };
+  var showError = function(btn, origText, err) {
+    btn.disabled = false; btn.textContent = origText;
+    resultDiv().innerHTML = '<div style="color:var(--error);font-size:13px;padding:12px;">' + self.escapeHtml(err.message) + '</div>';
+  };
+
+  document.getElementById('compStyleBtn').addEventListener('click', function() {
+    var target = document.getElementById('compAnalysisTarget').value;
+    if (!target) { self.showToast('競合を選択してください', 'error'); return; }
+    var btn = this; showLoading(btn, 'スタイル分析中（15〜45秒）...');
+    self.api('analyzeCompetitorStyle', { username: target }).then(function(res) {
+      showResult(btn, '📝 スタイル分析', res.analysis);
+    }).catch(function(err) { showError(btn, '📝 スタイル分析', err); });
+  });
+
+  document.getElementById('compVsSelfBtn').addEventListener('click', function() {
+    var target = document.getElementById('compAnalysisTarget').value;
+    var btn = this; showLoading(btn, '比較分析中（15〜45秒）...');
+    self.api('analyzeVsSelf', { username: target }).then(function(res) {
+      showResult(btn, '⚔️ 自分と比較', res.analysis);
+    }).catch(function(err) { showError(btn, '⚔️ 自分と比較', err); });
+  });
+
+  document.getElementById('compBuzzBtn').addEventListener('click', function() {
+    var btn = this; showLoading(btn, 'バズパターン分析中（15〜45秒）...');
+    self.api('analyzeBuzzPatterns', {}).then(function(res) {
+      showResult(btn, '🔥 バズパターン分析', res.analysis);
+    }).catch(function(err) { showError(btn, '🔥 バズパターン分析', err); });
+  });
+};
+</script>

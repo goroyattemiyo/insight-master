@@ -1,0 +1,517 @@
+<script>
+// ===========================================
+// 下書きストック画面（ツリー対応 + AI編集版）
+// ===========================================
+
+App.renderDraftsContent = function() {
+  return '<div class="screen-content">' +
+    '<div class="card"><div class="card-title">下書きストック</div>' +
+      '<div class="btn-group mb-12">' +
+        '<button class="btn btn-small draft-filter-btn active" data-filter="">全て</button>' +
+        '<button class="btn btn-small draft-filter-btn" data-filter="unused">未使用</button>' +
+        '<button class="btn btn-small draft-filter-btn" data-filter="used">使用済み</button></div>' +
+      '<button id="addDraftBtn" class="btn btn-secondary btn-full">＋ 手動で下書き追加</button></div>' +
+    this.renderTips([
+      { title: '📝 下書きの活用サイクル', body: '① AI生成で複数パターン作成 → ② 良いものを下書き保存 → ③ ゴールデンタイムに投稿 → ④ 投稿後「使用済み」にステータス変更。このサイクルを回すことで投稿の質と頻度が安定します。' },
+      { title: '🧵 ツリー下書きの使い方', body: 'ツリー保存した下書きは親投稿と返信がグループ表示されます。個別コピーで1つずつ投稿するか、全文コピーでまとめて確認できます。' },
+      { title: '✏️ AI編集の使い方', body: '各下書きの「✏️ AI編集」ボタンを押すと、文体変更や改善をAIが提案します。7つのスタイル（改善・短縮・拡張・カジュアル・プロフェッショナル・エンゲージ・フック強化）から選べます。' }
+    ]) +
+    '<div id="draftsListArea"><div class="loading"><div class="loading-spinner"></div></div></div></div>';
+};
+
+App.loadDrafts = async function() {
+  var self = this;
+  this.state.currentDraftFilter = '';
+
+  document.querySelectorAll('.draft-filter-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.draft-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      self.state.currentDraftFilter = this.getAttribute('data-filter');
+      self.fetchDraftsList_();
+    });
+  });
+
+  document.getElementById('addDraftBtn').addEventListener('click', function() { self.showAddDraftModal_(); });
+  await this.fetchDraftsList_();
+};
+
+App.fetchDraftsList_ = async function() {
+  var self = this;
+  var c = document.getElementById('draftsListArea');
+  try {
+    var drafts = await this.api('getDrafts', { statusFilter: this.state.currentDraftFilter || null });
+    if (!drafts || drafts.length === 0) {
+      c.innerHTML = '<div class="card" style="text-align:center;color:#666;padding:30px;">下書きがありません</div>';
+      return;
+    }
+    var html = '';
+    drafts.forEach(function(d) {
+      if (d.threadId && d.parts) {
+        html += self.renderThreadDraft_(d);
+      } else {
+        html += self.renderSingleDraft_(d);
+      }
+    });
+    c.innerHTML = html;
+    self.bindDraftEvents_(c);
+  } catch (e) {
+    c.innerHTML = '<div style="color:#e74c3c;text-align:center;padding:20px;">読み込みエラー</div>';
+  }
+};
+
+// ── 通常投稿カード ──
+App.renderSingleDraft_ = function(d) {
+  var badge = d.status === 'used'
+    ? '<span style="background:#e0e0e0;color:#666;padding:2px 8px;border-radius:4px;font-size:11px;">使用済み</span>'
+    : '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:4px;font-size:11px;">未使用</span>';
+  var src = d.source === 'ai_generated' ? '✨AI' : '✏️手動';
+  var date = d.createdAt ? new Date(d.createdAt).toLocaleDateString('ja-JP') : '';
+
+  return '<div class="card" style="margin:0 0 8px;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+      '<div style="display:flex;gap:6px;align-items:center;">' + badge +
+        '<span style="font-size:11px;color:var(--text-tertiary);">' + src + '</span></div>' +
+      '<span style="font-size:11px;color:var(--text-tertiary);">' + date + '</span></div>' +
+    '<div style="font-size:14px;margin-bottom:12px;line-height:1.6;white-space:pre-wrap;">' + this.escapeHtml(d.text) + '</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+      '<button class="btn btn-small btn-secondary draft-copy-btn" data-text="' + this.escapeAttr(d.text) + '">📋 コピー</button>' +
+      '<button class="btn btn-small btn-secondary draft-share-btn" data-text="' + this.escapeAttr(d.text) + '">📤 Threadsで開く</button>' +
+      '<button class="btn btn-small btn-secondary draft-refine-btn" data-id="' + d.draftId + '" data-text="' + this.escapeAttr(d.text) + '">✏️ AI編集</button>' +
+      '<button class="btn btn-small btn-secondary draft-toggle-btn" data-id="' + d.draftId + '">' +
+        (d.status === 'used' ? '↩️ 未使用に' : '✅ 使用済みに') + '</button>' +
+      '<button class="btn btn-small btn-danger draft-delete-btn" data-id="' + d.draftId + '">🗑 削除</button></div></div>';
+};
+
+// ── ツリー投稿カード ──
+App.renderThreadDraft_ = function(thread) {
+  var self = this;
+  var parts = thread.parts || [];
+  var firstPart = parts[0] || {};
+  var badge = firstPart.status === 'used'
+    ? '<span style="background:#e0e0e0;color:#666;padding:2px 8px;border-radius:4px;font-size:11px;">使用済み</span>'
+    : '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:4px;font-size:11px;">未使用</span>';
+  var src = firstPart.source === 'ai_generated' ? '✨AI' : '✏️手動';
+  var date = firstPart.createdAt ? new Date(firstPart.createdAt).toLocaleDateString('ja-JP') : '';
+
+  var fullText = parts.map(function(p) { return p.text; }).join('\n\n');
+
+  var html = '<div class="card" style="margin:0 0 8px;border-left:3px solid #8B5CF6;">';
+
+  // ヘッダー
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+    '<div style="display:flex;gap:6px;align-items:center;">' +
+      '<span style="background:#EDE9FE;color:#7C3AED;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">🧵 ツリー（' + parts.length + '投稿）</span>' +
+      badge +
+      '<span style="font-size:11px;color:var(--text-tertiary);">' + src + '</span></div>' +
+    '<span style="font-size:11px;color:var(--text-tertiary);">' + date + '</span></div>';
+
+  // 各パーツを表示
+  parts.forEach(function(p, i) {
+    var label = i === 0 ? '親投稿' : '返信 ' + i;
+    var borderColor = i === 0 ? '#8B5CF6' : '#C4B5FD';
+    var bgColor = i === 0 ? '#FAFAFF' : '#F9F9FC';
+
+    html += '<div style="background:' + bgColor + ';border-radius:8px;padding:10px 12px;margin-bottom:6px;' +
+      (i > 0 ? 'margin-left:16px;' : '') + 'border-left:2px solid ' + borderColor + ';">';
+    html += '<div style="font-size:11px;color:#7C3AED;font-weight:600;margin-bottom:4px;">' + label + '</div>';
+    html += '<div style="font-size:14px;line-height:1.6;white-space:pre-wrap;">' + self.escapeHtml(p.text) + '</div>';
+    html += '</div>';
+  });
+
+  // アクションボタン
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">';
+
+  parts.forEach(function(p, i) {
+    var label = i === 0 ? '📋 親をコピー' : '📋 返信' + i;
+    html += '<button class="btn btn-small btn-secondary draft-copy-btn" data-text="' + self.escapeAttr(p.text) + '">' + label + '</button>';
+  });
+
+  html += '<button class="btn btn-small btn-secondary draft-copy-btn" data-text="' + self.escapeAttr(fullText) + '" style="background:#EDE9FE;color:#7C3AED;">📋 全文コピー</button>';
+  html += '<button class="btn btn-small btn-secondary draft-share-btn" data-text="' + self.escapeAttr(fullText) + '">📤 Threadsで開く</button>';
+  html += '<button class="btn btn-small btn-secondary draft-refine-btn" data-id="' + firstPart.draftId + '" data-text="' + self.escapeAttr(firstPart.text) + '">✏️ AI編集</button>';
+  html += '<button class="btn btn-small btn-secondary draft-toggle-btn" data-id="' + firstPart.draftId + '">' +
+    (firstPart.status === 'used' ? '↩️ 未使用に' : '✅ 使用済みに') + '</button>';
+  html += '<button class="btn btn-small btn-danger draft-delete-btn" data-id="' + firstPart.draftId + '">🗑 削除</button>';
+
+  html += '</div></div>';
+  return html;
+};
+
+// ── イベントバインド（共通） ──
+App.bindDraftEvents_ = function(container) {
+  var self = this;
+
+  container.querySelectorAll('.draft-copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      self.copyToClipboard(this.getAttribute('data-text'));
+    });
+  });
+
+  container.querySelectorAll('.draft-share-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var text = this.getAttribute('data-text') || '';
+      if (navigator.share) {
+        navigator.share({ text: text });
+      } else {
+        self.copyToClipboard(text);
+        window.open('https://www.threads.net', '_blank');
+      }
+    });
+  });
+
+  container.querySelectorAll('.draft-toggle-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      try {
+        await self.api('toggleDraftStatus', { draftId: this.getAttribute('data-id') });
+        self.fetchDraftsList_();
+      } catch (e) { self.showToast('エラー', 'error'); }
+    });
+  });
+
+  container.querySelectorAll('.draft-delete-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      if (!confirm('この下書きを削除しますか？')) return;
+      try {
+        await self.api('deleteDraft', { draftId: this.getAttribute('data-id') });
+        self.showToast('削除しました', 'success');
+        self.fetchDraftsList_();
+      } catch (e) { self.showToast('削除エラー', 'error'); }
+    });
+  });
+
+  // ── AI編集ボタン ──
+  container.querySelectorAll('.draft-refine-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var text = this.getAttribute('data-text');
+      var draftId = this.getAttribute('data-id');
+      self.showRefineModal_(text, draftId);
+    });
+  });
+};
+
+// ── AI編集モーダル ──
+App.showRefineModal_ = function(text, draftId) {
+  var self = this;
+
+  // 既存モーダルがあれば除去
+  var existing = document.getElementById('refineModal');
+  if (existing) document.body.removeChild(existing);
+
+  var styles = [
+    { key: 'improve',      label: '🔧 改善',         desc: '全体的な品質向上' },
+    { key: 'shorter',      label: '✂️ 短縮',         desc: 'コンパクトに要約' },
+    { key: 'longer',       label: '📝 拡張',         desc: '内容を膨らませる' },
+    { key: 'casual',       label: '😊 カジュアル',    desc: '親しみやすい文体' },
+    { key: 'professional', label: '💼 プロ',          desc: 'ビジネス向け文体' },
+    { key: 'engaging',     label: '🔥 エンゲージ',    desc: '反応を得やすく' },
+    { key: 'hook',         label: '🎣 フック強化',    desc: '冒頭で引きつける' }
+  ];
+
+  var styleButtons = styles.map(function(s) {
+    return '<button class="btn btn-small btn-secondary refine-style-btn" data-style="' + s.key + '" ' +
+      'style="display:flex;flex-direction:column;align-items:center;padding:8px 12px;min-width:80px;transition:all 0.2s;">' +
+      '<span class="text-body">' + s.label + '</span>' +
+      '<span style="font-size:10px;color:var(--text-tertiary);margin-top:2px;">' + s.desc + '</span></button>';
+  }).join('');
+
+  var previewText = text.length > 100 ? text.substring(0, 100) + '…' : text;
+
+  var overlay = document.createElement('div');
+  overlay.id = 'refineModal';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000;padding:16px;';
+
+  overlay.innerHTML =
+    '<div style="background:var(--bg-primary,#fff);border-radius:16px;padding:24px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;">' +
+
+      // ヘッダー
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+        '<div style="font-size:18px;font-weight:bold;">✏️ AI編集</div>' +
+        '<button id="refineCloseBtn" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-secondary);">✕</button></div>' +
+
+      // 元テキストプレビュー
+      '<div style="background:var(--bg-secondary,#f5f5f5);border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:13px;line-height:1.5;color:var(--text-secondary);">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--text-tertiary);margin-bottom:4px;">元の投稿</div>' +
+        self.escapeHtml(previewText) + '</div>' +
+
+      // スタイル選択
+      '<div class="mb-12">' +
+        '<div style="font-size:13px;font-weight:600;margin-bottom:8px;">編集スタイルを選択</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + styleButtons + '</div></div>' +
+
+      // 自由指示
+      '<div style="margin-bottom:16px;">' +
+        '<div style="font-size:13px;font-weight:600;margin-bottom:6px;">追加の指示（任意）</div>' +
+        '<input id="refineInstruction" class="input" type="text" placeholder="例：絵文字を多めに、ハッシュタグ3つ追加…" style="font-size:13px;"></div>' +
+
+      // 実行ボタン
+      '<button id="refineExecuteBtn" class="btn btn-primary btn-full" disabled style="margin-bottom:16px;">スタイルを選んでください</button>' +
+
+      // 結果表示エリア
+      '<div id="refineResultArea"></div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+
+  // 状態
+  var selectedStyle = null;
+
+  // 背景クリックで閉じる
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) document.body.removeChild(overlay);
+  });
+
+  // 閉じるボタン
+  document.getElementById('refineCloseBtn').addEventListener('click', function() {
+    document.body.removeChild(overlay);
+  });
+
+  // スタイル選択
+  overlay.querySelectorAll('.refine-style-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      overlay.querySelectorAll('.refine-style-btn').forEach(function(b) {
+        b.style.border = '';
+        b.style.background = '';
+      });
+      this.style.border = '2px solid var(--primary)';
+      this.style.background = 'var(--bg-secondary,#f0f0ff)';
+      selectedStyle = this.getAttribute('data-style');
+
+      var execBtn = document.getElementById('refineExecuteBtn');
+      execBtn.disabled = false;
+      var match = styles.find(function(s) { return s.key === selectedStyle; });
+      execBtn.textContent = '✨ 「' + (match ? match.label : selectedStyle) + '」で編集する';
+    });
+  });
+
+  // 実行
+  document.getElementById('refineExecuteBtn').addEventListener('click', function() {
+    if (!selectedStyle) return;
+    var instruction = (document.getElementById('refineInstruction').value || '').trim();
+    self.executeRefine_(text, selectedStyle, instruction, draftId, overlay);
+  });
+};
+
+// ── AI編集実行（修正版） ──
+App.executeRefine_ = async function(text, style, instruction, draftId, overlay) {
+  var self = this;
+  var resultArea = document.getElementById('refineResultArea');
+  var execBtn = document.getElementById('refineExecuteBtn');
+
+  execBtn.disabled = true;
+  execBtn.textContent = '⏳ AIが編集中…';
+  resultArea.innerHTML =
+    '<div style="text-align:center;padding:20px;">' +
+      '<div class="loading-spinner" style="margin:0 auto 8px;"></div>' +
+      '<div class="text-caption">3つのバリエーションを生成しています…</div></div>';
+
+  try {
+    var res = await this.api('refinePostWithAI', {
+      text: text,
+      style: style,
+      instruction: instruction || null
+    });
+
+    // ── レスポンスから投稿テキスト配列を確実に抽出 ──
+    var variants = self.extractRefineVariants_(res);
+
+    if (variants.length === 0) {
+      resultArea.innerHTML = '<div style="color:#e74c3c;text-align:center;padding:16px;">結果を取得できませんでした</div>';
+      execBtn.textContent = '再試行';
+      execBtn.disabled = false;
+      return;
+    }
+
+    var html = '<div style="font-size:14px;font-weight:600;margin-bottom:10px;">✨ 編集結果（' + variants.length + 'パターン）</div>';
+
+    variants.forEach(function(v, i) {
+      html += '<div style="background:var(--bg-secondary,#f5f5f5);border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid var(--border-color,#e5e5e5);">';
+
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+        '<span style="font-size:12px;font-weight:600;color:var(--primary);">パターン ' + (i + 1) + '</span>' +
+        '<span style="font-size:11px;color:var(--text-tertiary);">' + v.text.length + '文字</span></div>';
+
+      if (v.reason) {
+        html += '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;padding:4px 8px;background:var(--bg-primary,#fff);border-radius:4px;">💡 ' + self.escapeHtml(v.reason) + '</div>';
+      }
+
+      html += '<div style="font-size:14px;line-height:1.7;white-space:pre-wrap;margin-bottom:10px;">' + self.escapeHtml(v.text) + '</div>';
+
+      html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+        '<button class="btn btn-small btn-secondary refine-copy-btn" data-text="' + self.escapeAttr(v.text) + '">📋 コピー</button>' +
+        '<button class="btn btn-small btn-primary refine-save-btn" data-text="' + self.escapeAttr(v.text) + '">💾 下書き保存</button>' +
+        '<button class="btn btn-small btn-secondary refine-replace-btn" data-text="' + self.escapeAttr(v.text) + '" data-id="' + (draftId || '') + '" ' +
+          (draftId ? '' : 'disabled style="opacity:0.5;"') + '>🔄 上書き</button>' +
+      '</div></div>';
+    });
+
+    resultArea.innerHTML = html;
+    execBtn.textContent = '✨ もう一度生成する';
+    execBtn.disabled = false;
+    self.bindRefineResultEvents_(resultArea, overlay);
+
+  } catch (e) {
+    var errMsg = (e && e.message) ? e.message : '不明なエラー';
+    resultArea.innerHTML =
+      '<div style="color:#e74c3c;text-align:center;padding:16px;">' +
+        '<div style="font-size:14px;margin-bottom:4px;">AI編集エラー</div>' +
+        '<div style="font-size:12px;">' + self.escapeHtml(errMsg) + '</div></div>';
+    execBtn.textContent = '再試行';
+    execBtn.disabled = false;
+  }
+};
+
+// ── レスポンスからバリエーションを確実に抽出 ──
+App.extractRefineVariants_ = function(res) {
+  var raw = res;
+  var variants = [];
+
+  // 1. res.results が配列ならそのまま使う
+  if (res && Array.isArray(res.results) && res.results.length > 0) {
+    raw = res.results;
+  }
+  // 2. res.result が文字列（JSON生テキスト）
+  else if (res && typeof res.results === 'string') {
+    raw = res.results;
+  }
+  // 3. res 自体が文字列
+  else if (typeof res === 'string') {
+    raw = res;
+  }
+
+  // 文字列ならJSONパースを試行
+  if (typeof raw === 'string') {
+    // ```json ... ``` ブロック除去
+    var match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (match) raw = match[1].trim();
+
+    try {
+      raw = JSON.parse(raw);
+    } catch (e) {
+      // パース不可：テキストとしてそのまま1件扱い
+      return [{ text: raw.replace(/```[\s\S]*?```/g, '').trim(), reason: '' }];
+    }
+  }
+
+  // 配列として処理
+  if (Array.isArray(raw)) {
+    raw.forEach(function(item) {
+      if (typeof item === 'string') {
+        variants.push({ text: item.trim(), reason: '' });
+      } else if (item && typeof item === 'object') {
+        var t = (item.text || item.content || '').trim();
+        if (t) {
+          variants.push({ text: t, reason: (item.reason || '').trim() });
+        }
+      }
+    });
+  }
+  // 単一オブジェクト
+  else if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    var t = (raw.text || raw.content || '').trim();
+    if (t) variants.push({ text: t, reason: (raw.reason || '').trim() });
+  }
+
+  return variants;
+};
+
+// ── AI編集結果のイベントバインド ──
+App.bindRefineResultEvents_ = function(container, overlay) {
+  var self = this;
+
+  // コピー
+  container.querySelectorAll('.refine-copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      self.copyToClipboard(this.getAttribute('data-text'));
+    });
+  });
+
+  // 下書き保存（新規）
+  container.querySelectorAll('.refine-save-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var text = this.getAttribute('data-text');
+      var saveBtn = this;
+      saveBtn.disabled = true;
+      saveBtn.textContent = '⏳ 保存中…';
+      try {
+        await self.api('saveDraft', { text: text, type: 'single', source: 'ai_generated' });
+        saveBtn.textContent = '✅ 保存済み';
+        self.showToast('下書きに保存しました', 'success');
+      } catch (e) {
+        saveBtn.textContent = '💾 下書き保存';
+        saveBtn.disabled = false;
+        self.showToast('保存エラー', 'error');
+      }
+    });
+  });
+
+  // 上書き（既存の下書きを置き換え）
+  container.querySelectorAll('.refine-replace-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var text = this.getAttribute('data-text');
+      var id = this.getAttribute('data-id');
+      if (!id) return;
+      if (!confirm('この内容で元の下書きを上書きしますか？')) return;
+      var replaceBtn = this;
+      replaceBtn.disabled = true;
+      replaceBtn.textContent = '⏳ 上書き中…';
+      try {
+        // 元を削除 → 新規保存
+        await self.api('deleteDraft', { draftId: id });
+        await self.api('saveDraft', { text: text, type: 'single', source: 'ai_generated' });
+        replaceBtn.textContent = '✅ 上書き済み';
+        self.showToast('上書きしました', 'success');
+        // モーダルを閉じてリスト更新
+        if (overlay && overlay.parentNode) document.body.removeChild(overlay);
+        self.fetchDraftsList_();
+      } catch (e) {
+        replaceBtn.textContent = '🔄 上書き';
+        replaceBtn.disabled = false;
+        self.showToast('上書きエラー', 'error');
+      }
+    });
+  });
+};
+
+// ── 手動追加モーダル ──
+App.showAddDraftModal_ = function() {
+  var self = this;
+  var overlay = document.createElement('div');
+  overlay.id = 'draftModal';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000;padding:20px;';
+  overlay.innerHTML = '<div style="background:var(--bg-primary,#fff);border-radius:16px;padding:24px;max-width:450px;width:100%;">' +
+    '<div style="font-size:18px;font-weight:bold;margin-bottom:16px;">下書きを追加</div>' +
+    '<textarea id="manualDraftText" class="textarea" placeholder="投稿文を入力..." style="min-height:120px;margin-bottom:8px;"></textarea>' +
+    '<p style="font-size:11px;color:#999;margin-bottom:12px;">💡 ツリー投稿の場合は空行（2回改行）で区切ると、親投稿＋返信に自動分割されます</p>' +
+    '<div class="btn-group">' +
+      '<button id="cancelDraftBtn" class="btn btn-secondary" style="flex:1;">キャンセル</button>' +
+      '<button id="saveSingleDraftBtn" class="btn btn-primary" style="flex:1;">💾 保存</button>' +
+      '<button id="saveThreadDraftBtn" class="btn btn-primary" style="flex:1;background:#7C3AED;">🧵 ツリー保存</button></div></div>';
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) document.body.removeChild(overlay); });
+  document.getElementById('cancelDraftBtn').addEventListener('click', function() { document.body.removeChild(overlay); });
+
+  document.getElementById('saveSingleDraftBtn').addEventListener('click', async function() {
+    var text = document.getElementById('manualDraftText').value.trim();
+    if (!text) { self.showToast('テキストを入力してください', 'error'); return; }
+    try {
+      await self.api('saveDraft', { text: text, type: 'single', source: 'manual' });
+      document.body.removeChild(overlay);
+      self.showToast('下書きを保存しました', 'success');
+      self.fetchDraftsList_();
+    } catch (e) { self.showToast('保存エラー', 'error'); }
+  });
+
+  document.getElementById('saveThreadDraftBtn').addEventListener('click', async function() {
+    var text = document.getElementById('manualDraftText').value.trim();
+    if (!text) { self.showToast('テキストを入力してください', 'error'); return; }
+    try {
+      await self.api('saveDraft', { text: text, type: 'thread', source: 'manual' });
+      document.body.removeChild(overlay);
+      self.showToast('ツリー下書きを保存しました', 'success');
+      self.fetchDraftsList_();
+    } catch (e) { self.showToast('保存エラー', 'error'); }
+  });
+};
+</script>

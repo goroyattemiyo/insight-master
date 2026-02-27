@@ -1,0 +1,4 @@
+﻿docs/**
+.vscode/**
+.clasp.json
+README.md

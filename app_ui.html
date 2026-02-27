@@ -1,0 +1,526 @@
+<script>
+App.isInAppBrowser = function() {
+    var ua = navigator.userAgent || '';
+    return [/Line/i,/FBAN/i,/FBAV/i,/Instagram/i,/Twitter/i,/MicroMessenger/i].some(function(p){return p.test(ua);});
+  };
+
+App.renderInAppWarning = function() {
+    if (!this.isInAppBrowser()) return '';
+    return '<div class="card warning-banner warning-banner-yellow card-no-border mb-20">' +
+      '<div style="display:flex;gap:12px;"><div style="font-size:24px;">⚠️</div><div style="flex:1;">' +
+      '<div class="text-subheading mb-8" style="color:var(--warning-text);">アプリ内ブラウザで開いています</div>' +
+      '<p class="text-caption mb-12" style="color:var(--warning-text);">正常に動作しない場合があります。</p>' +
+      '<button id="copyUrlBtnInApp" class="btn btn-full btn-warning">📋 URLをコピー</button>' +
+      '</div></div></div>';
+  };
+
+App.bindInAppWarningEvents = function() {
+    var self = this;
+    var btn = document.getElementById('copyUrlBtnInApp');
+    if (btn) btn.addEventListener('click', function() { self.copyToClipboard(window.location.href); });
+  };
+
+App.copyToClipboard = function(text) {
+    var self = this;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function() {
+        self.showToast('コピーしました', 'success');
+      }).catch(function() { self.fallbackCopy_(text); });
+    } else { self.fallbackCopy_(text); }
+  };
+
+App.fallbackCopy_ = function(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); this.showToast('コピーしました', 'success'); }
+    catch (e) { this.showToast('コピー失敗', 'error'); }
+    document.body.removeChild(ta);
+  };
+
+App.formatMarkdown_ = function(text) {
+    if (!text) return '';
+    var lines = text.split('\n'), html = '', inCode = false;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (line.trim().indexOf('```') === 0) {
+        if (inCode) { html += '</code></pre>'; inCode = false; }
+        else { html += '<pre style="background:var(--bg-tertiary);padding:12px;border-radius:8px;overflow-x:auto;font-size:13px;"><code>'; inCode = true; }
+        continue;
+      }
+      if (inCode) { html += this.escapeHtml(line) + '\n'; continue; }
+      var hMatch = line.match(/^(#{1,4})\s+(.+)$/);
+      if (hMatch) {
+        var lvl = hMatch[1].length;
+        var sizes = ['', '18px', '16px', '15px', '14px'];
+        html += '<div style="font-weight:700;font-size:' + sizes[lvl] + ';margin:16px 0 8px;color:var(--text-primary);">' + this.formatMarkdownInline_(this.escapeHtml(hMatch[2])) + '</div>';
+        continue;
+      }
+      if (line.trim().match(/^[-*_]{3,}$/)) { html += '<hr style="border:none;border-top:1px solid var(--border-color);margin:16px 0;">'; continue; }
+      var olMatch = line.match(/^(\s*)\d+\.\s+(.+)$/);
+      if (olMatch) { html += '<div style="margin-left:' + (16 + olMatch[1].length * 8) + 'px;margin-bottom:4px;font-size:14px;">' + this.formatMarkdownInline_(this.escapeHtml(olMatch[2])) + '</div>'; continue; }
+      var ulMatch = line.match(/^(\s*)[*\-]\s+(.+)$/);
+      if (ulMatch) { html += '<div style="margin-left:' + (16 + ulMatch[1].length * 8) + 'px;margin-bottom:4px;font-size:14px;">• ' + this.formatMarkdownInline_(this.escapeHtml(ulMatch[2])) + '</div>'; continue; }
+      if (line.trim() === '') { html += '<div style="height:8px;"></div>'; continue; }
+      html += '<div style="margin-bottom:2px;font-size:14px;">' + this.formatMarkdownInline_(this.escapeHtml(line)) + '</div>';
+    }
+    if (inCode) html += '</code></pre>';
+    return html;
+  };
+
+App.formatMarkdownInline_ = function(text) {
+    text = text.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
+    text = text.replace(/(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)/g, '<em>$1</em>');
+    text = text.replace(/`([^`]+)`/g, '<code style="background:var(--bg-tertiary);padding:1px 5px;border-radius:3px;font-size:13px;">$1</code>');
+    return text;
+  };
+
+App.renderScreenContent = function(activeTab) {
+  switch (activeTab) {
+    case 'dashboard': return this.renderDashboardContent();
+    case 'analytics': return this.renderAnalyticsContent();
+    case 'create': return this.renderCreateContent();
+    case 'settings': return this.renderSettingsContent();
+    default: return '<div class="loading"><div class="loading-spinner"></div></div>';
+  }
+};
+
+App.renderShell = function(activeTab) {
+  var user = this.state.user || {};
+  var headerUser = '';
+  if (this.state.accounts.length > 1) {
+    headerUser = this.renderAccountSwitcher();
+  } else {
+    headerUser = '<div class="header-user">' +
+      (user.profilePicUrl ? '<img src="' + user.profilePicUrl + '" class="header-avatar">' : '') +
+      '<span class="header-username">@' + (user.username || 'ユーザー') + '</span></div>';
+  }
+  return '<div class="header">' +
+    '<div class="header-title">' +
+      '<div class="brand-logo">' +
+        '<img src="https://files.catbox.moe/up3cd1.webp">' +
+        '<div class="brand-text">' +
+          '<span class="brand-en">Insight Master</span>' +
+          '<span class="brand-ja">インサイトマスター</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+      headerUser +
+    '</div>' +
+  '</div>' +
+  '<div id="ptrIndicator" class="ptr-indicator"><span class="ptr-icon">↻</span></div>' +
+  '<div class="content" id="content"></div>' +
+  (this.state.settings.hasAccessToken ?
+    '<button id="quickFab" class="fab">✨</button>' +
+    '<div id="quickModal" class="modal-overlay">' +
+      '<div class="modal-sheet">' +
+        '<div class="modal-header">' +
+          '<div class="text-heading">クイック投稿</div>' +
+          '<button id="closeQuickModal" class="modal-close">✕</button>' +
+        '</div>' +
+        '<div class="mb-12">' +
+          '<label class="text-subheading mb-8">テーマ</label>' +
+          '<input type="text" id="quickTheme" class="input" placeholder="例: 朝活のメリット">' +
+        '</div>' +
+        '<div class="mb-12">' +
+          '<label class="text-subheading mb-8">モード</label>' +
+          '<div class="segment" id="quickModeSeg">' +
+            '<button class="segment-btn active" data-mode="normal">通常</button>' +
+            '<button class="segment-btn" data-mode="thread">スレッド</button>' +
+            '<button class="segment-btn" data-mode="analysis-based">分析ベース</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="mb-12">' +
+          '<button id="quickGenBtn" class="btn btn-full">生成</button>' +
+          '<div id="quickGenLoading" class="loading" style="display:none;"><div class="loading-spinner"></div><div>生成中...</div></div>' +
+        '</div>' +
+        '<div id="quickGenResults"></div>' +
+      '</div>' +
+    '</div>' : '') +
+  '<nav class="nav"><div class="nav-inner">' +
+    this.navBtn_('dashboard', '📊', 'ホーム', activeTab) +
+    this.navBtn_('analytics', '📈', '分析', activeTab) +
+    this.navBtn_('create', '✨', '作成', activeTab) +
+    this.navBtn_('settings', '⚙️', '設定', activeTab) +
+  '</div></nav>';
+};
+
+App.renderMainLayout = function(activeTab) {
+  return this.renderShell(activeTab);
+};
+
+App.isSetupComplete_ = function() {
+  var s = this.state.settings || {};
+  return !!(s.app_id && s.hasAppSecret && s.hasAccessToken);
+};
+
+App.refreshNavLock_ = function() {
+  var unlocked = this.isSetupComplete_();
+  document.querySelectorAll('.nav-item').forEach(function(item) {
+    var screen = item.getAttribute('data-screen');
+    var lockTarget = (screen === 'dashboard' || screen === 'analytics' || screen === 'create');
+    item.classList.toggle('nav-locked', lockTarget && !unlocked);
+  });
+};
+
+
+App.navBtn_ = function(screen, icon, label, active) {
+    var isLocked = !this.isSetupComplete_() && (screen === 'dashboard' || screen === 'analytics' || screen === 'create');
+    return '<button class="nav-item' + (active === screen ? ' active' : '') + (isLocked ? ' nav-locked' : '') + '" data-screen="' + screen + '">' +
+      '<span class="nav-icon">' + icon + '</span><span>' + label + '</span></button>';
+  };
+
+App.bindNavEvents = function() {
+    var self = this;
+    var lastTapTime = 0;
+    var lastTapScreen = '';
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        if (this.classList.contains('nav-locked')) {
+          self.showToast('先に設定を完了してください', 'warning');
+          return;
+        }
+        if (this.classList.contains('disabled')) {
+          self.showToast('設定を完了してください', 'info');
+          return;
+        }
+        var screen = this.getAttribute('data-screen');
+        var now = Date.now();
+        if (lastTapScreen === screen && (now - lastTapTime) <= 300) {
+          var content = document.getElementById('content');
+          if (content) content.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          self.showScreen(screen);
+        }
+        lastTapTime = now;
+        lastTapScreen = screen;
+      });
+    });
+    this.refreshNavLock_();
+    this.bindAccountSwitcherEvents();
+    this.initQuickPostFab();
+    this.initPullToRefresh_();
+  };
+
+App.initPullToRefresh_ = function() {
+    var self = this;
+    var content = document.getElementById('content');
+    var indicator = document.getElementById('ptrIndicator');
+    if (!content || !indicator) return;
+    var startY = 0;
+    var pulling = false;
+    var refreshing = false;
+    var threshold = 50;
+
+    content.addEventListener('touchstart', function(e) {
+      if (refreshing) return;
+      if (content.scrollTop <= 0) {
+        startY = e.touches[0].clientY;
+        pulling = true;
+      }
+    }, { passive: true });
+
+    content.addEventListener('touchmove', function(e) {
+      if (!pulling || refreshing) return;
+      var delta = e.touches[0].clientY - startY;
+      if (delta > threshold && content.scrollTop <= 0) {
+        indicator.classList.add('pulling');
+      }
+    }, { passive: true });
+
+    content.addEventListener('touchend', function() {
+      if (!pulling || refreshing) return;
+      pulling = false;
+      if (!indicator.classList.contains('pulling')) return;
+      if (content.scrollTop > 0) {
+        indicator.classList.remove('pulling');
+        return;
+      }
+      indicator.classList.remove('pulling');
+      indicator.classList.add('refreshing');
+      refreshing = true;
+      self.refreshCurrentScreen_().finally(function() {
+        indicator.classList.remove('refreshing');
+        refreshing = false;
+      });
+    }, { passive: true });
+  };
+
+App.refreshCurrentScreen_ = function() {
+    var screen = this.state.currentScreen;
+    if (screen === 'dashboard' && this.loadDashboardData_) {
+      return this.loadDashboardData_();
+    }
+    if (screen === 'analytics') {
+      var periodBtn = document.querySelector('.period-btn.active');
+      var period = periodBtn ? periodBtn.getAttribute('data-period') : '7';
+      var periodDays = period === 'all' ? 'all' : parseInt(period, 10);
+      var tasks = [];
+      if (this.loadPostList_) tasks.push(this.loadPostList_(periodDays));
+      if (this.loadHeatmap_) tasks.push(this.loadHeatmap_());
+      if (this.state.analyticsTab === 'competitor' && this.loadCompetitor) {
+        tasks.push(this.loadCompetitor());
+      }
+      return Promise.all(tasks);
+    }
+    if (screen === 'create') {
+      if (this.state.createTab === 'search' && this.loadKeywords) {
+        return Promise.resolve(this.loadKeywords());
+      }
+      if (this.state.createTab === 'drafts' && this.loadDrafts) {
+        return Promise.resolve(this.loadDrafts());
+      }
+    }
+    return Promise.resolve();
+  };
+
+App.renderAccountSwitcher = function() {
+    var accounts = this.state.accounts || [];
+    var active = this.state.activeAccount;
+    if (accounts.length <= 1) return '';
+    var name = active ? active.username : '選択';
+    var pic = active && active.profilePicUrl ? active.profilePicUrl : '';
+    var opts = '';
+    accounts.forEach(function(acc) {
+      var isA = active && acc.accountId === active.accountId;
+      opts += '<div class="account-option' + (isA ? ' active' : '') + '" data-account-id="' + acc.accountId + '">' +
+        (acc.profilePicUrl ? '<img src="' + acc.profilePicUrl + '" class="account-option-pic">' : '<div class="account-option-pic-placeholder"></div>') +
+        '<span class="account-option-name">@' + (acc.username || acc.accountId) + '</span>' +
+        (isA ? '<span class="account-option-check">✓</span>' : '') + '</div>';
+    });
+    return '<div class="account-switcher"><button class="account-switcher-btn" id="accountSwitcherBtn">' +
+      (pic ? '<img src="' + pic + '" class="switcher-pic">' : '') +
+      '<span class="switcher-name">@' + name + '</span><span class="switcher-arrow">▼</span></button>' +
+      '<div class="account-dropdown" id="accountDropdown">' + opts + '</div></div>';
+  };
+
+App.bindAccountSwitcherEvents = function() {
+    var self = this;
+    var btn = document.getElementById('accountSwitcherBtn');
+    var dd = document.getElementById('accountDropdown');
+    if (!btn || !dd) return;
+    btn.addEventListener('click', function(e) { e.stopPropagation(); dd.classList.toggle('show'); });
+    document.addEventListener('click', function() { if(dd) dd.classList.remove('show'); });
+    dd.querySelectorAll('.account-option').forEach(function(opt) {
+      opt.addEventListener('click', function(e) {
+        e.stopPropagation(); dd.classList.remove('show');
+        self.switchAccount(this.getAttribute('data-account-id'));
+      });
+    });
+  };
+
+App.escapeHtml = function(text) {
+    if (!text) return '';
+    return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#039;').replace(/\n/g,'<br>');
+  };
+
+App.escapeAttr = function(text) {
+    if (!text) return '';
+    return String(text).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#039;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  };
+
+App.renderMetricCard = function(icon, label, value, trend) {
+    var display = (value !== undefined && value !== null)
+      ? (typeof value === 'number' ? value.toLocaleString() : value) : '0';
+    var safeLabel = this.escapeHtml(String(label || ''));
+    var safeValue = this.escapeHtml(String(display));
+    return '<div class="metric-card">' +
+      '<div class="metric-icon">' + icon + '</div>' +
+      '<div class="metric-value">' + safeValue + '</div>' +
+      '<div class="metric-label">' + safeLabel + '</div>' +
+      (trend ? '<span class="metric-trend ' + (trend > 0 ? 'up' : 'down') + '">' + (trend > 0 ? '&uarr;' : '&darr;') + ' ' + Math.abs(trend) + '%</span>' : '') +
+      '</div>';
+  };
+
+App.showToast = function(message, type) {
+    var existing = document.querySelector('.toast');
+    if (existing) {
+      existing.classList.add('toast-exit');
+      setTimeout(function() { if (existing && existing.parentNode) existing.remove(); }, 300);
+    }
+    var toast = document.createElement('div');
+    toast.className = 'toast' + (type ? ' ' + type : '');
+    var safeMessage = this.escapeHtml(message);
+    toast.innerHTML = '<span class="toast-icon"></span><span>' + safeMessage + '</span>';
+    document.body.appendChild(toast);
+    setTimeout(function() {
+      toast.classList.add('toast-exit');
+      setTimeout(function() { if (toast && toast.parentNode) toast.remove(); }, 300);
+    }, 3000);
+  };
+
+App.renderTips = function(tips) {
+    var id = 'tips-' + Math.random().toString(36).substr(2, 6);
+    var html = '<div class="tips-wrap">' +
+      '<button class="tips-toggle-btn tips-btn" data-target="' + id + '">💡 Tips を見る</button>' +
+      '<div id="' + id + '" class="tips-panel" hidden>';
+    for (var i = 0; i < tips.length; i++) {
+      html += '<div class="tips-item">' +
+        '<div class="tips-title">' + tips[i].title + '</div>' +
+        '<div class="tips-body">' + tips[i].body + '</div>' +
+      '</div>';
+    }
+    html += '</div></div>';
+    return html;
+  };
+
+App.bindTipsEvents = function() {
+    document.querySelectorAll('.tips-toggle-btn').forEach(function(btn) {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = 'true';
+      btn.addEventListener('click', function() {
+        var target = document.getElementById(this.getAttribute('data-target'));
+        if (target) {
+          if (target.hidden) {
+            target.hidden = false;
+            this.innerHTML = '💡 Tips を閉じる';
+          } else {
+            target.hidden = true;
+            this.innerHTML = '💡 Tips を見る';
+          }
+        }
+      });
+    });
+  };
+
+App.renderSkeletonDashboard = function() {
+    return '<div class="skeleton-card">' +
+      '<div class="skeleton-avatar-row">' +
+        '<div class="skeleton skeleton-circle" style="width:50px;height:50px;"></div>' +
+        '<div style="flex:1;">' +
+          '<div class="skeleton skeleton-line skeleton-line-short" style="height:16px;"></div>' +
+          '<div class="skeleton skeleton-line" style="width:40%;height:12px;"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="skeleton-card">' +
+      '<div class="skeleton skeleton-line skeleton-line-short" style="height:18px;margin-bottom:16px;"></div>' +
+      '<div class="skeleton-metric-grid">' +
+        '<div class="skeleton-metric"><div class="skeleton skeleton-line" style="width:30px;height:30px;margin:0 auto 6px;border-radius:50%;"></div><div class="skeleton skeleton-line" style="width:50%;height:20px;"></div><div class="skeleton skeleton-line" style="width:40%;height:12px;"></div></div>' +
+        '<div class="skeleton-metric"><div class="skeleton skeleton-line" style="width:30px;height:30px;margin:0 auto 6px;border-radius:50%;"></div><div class="skeleton skeleton-line" style="width:50%;height:20px;"></div><div class="skeleton skeleton-line" style="width:40%;height:12px;"></div></div>' +
+        '<div class="skeleton-metric"><div class="skeleton skeleton-line" style="width:30px;height:30px;margin:0 auto 6px;border-radius:50%;"></div><div class="skeleton skeleton-line" style="width:50%;height:20px;"></div><div class="skeleton skeleton-line" style="width:40%;height:12px;"></div></div>' +
+        '<div class="skeleton-metric"><div class="skeleton skeleton-line" style="width:30px;height:30px;margin:0 auto 6px;border-radius:50%;"></div><div class="skeleton skeleton-line" style="width:50%;height:20px;"></div><div class="skeleton skeleton-line" style="width:40%;height:12px;"></div></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="skeleton-card">' +
+      '<div class="skeleton skeleton-line skeleton-line-short" style="height:18px;margin-bottom:16px;"></div>' +
+      '<div class="skeleton-metric-grid">' +
+        '<div class="skeleton-metric"><div class="skeleton skeleton-line" style="width:50%;height:20px;"></div></div>' +
+        '<div class="skeleton-metric"><div class="skeleton skeleton-line" style="width:50%;height:20px;"></div></div>' +
+      '</div>' +
+    '</div>';
+  };
+
+App.renderSkeletonPostList = function() {
+    var html = '';
+    for (var i = 0; i < 3; i++) {
+      html += '<div class="skeleton-post">' +
+        '<div class="skeleton skeleton-line skeleton-line-full"></div>' +
+        '<div class="skeleton skeleton-line skeleton-line-medium"></div>' +
+        '<div class="skeleton skeleton-line skeleton-line-short" style="height:12px;margin-top:8px;"></div>' +
+        '<div style="display:flex;gap:12px;margin-top:10px;">' +
+          '<div class="skeleton skeleton-line" style="width:50px;height:14px;"></div>' +
+          '<div class="skeleton skeleton-line" style="width:40px;height:14px;"></div>' +
+          '<div class="skeleton skeleton-line" style="width:40px;height:14px;"></div>' +
+        '</div>' +
+      '</div>';
+    }
+    return html;
+  };
+
+
+
+App.initQuickPostFab = function() {
+  var self = this;
+  var fab = document.getElementById('quickFab');
+  var modal = document.getElementById('quickModal');
+  var closeBtn = document.getElementById('closeQuickModal');
+  var themeInput = document.getElementById('quickTheme');
+  var modeSeg = document.getElementById('quickModeSeg');
+  var genBtn = document.getElementById('quickGenBtn');
+  var loading = document.getElementById('quickGenLoading');
+  var results = document.getElementById('quickGenResults');
+
+  if (!fab || !modal) return;
+
+  var saved = localStorage.getItem('insight_master_ai_settings');
+  if (saved) {
+    try {
+      var s = JSON.parse(saved);
+      if (s.theme && themeInput) themeInput.value = s.theme;
+      if (s.mode) {
+        modeSeg.querySelectorAll('.segment-btn').forEach(function(b) {
+          b.classList.toggle('active', b.getAttribute('data-mode') === s.mode);
+        });
+      }
+    } catch (e) {}
+  }
+
+  fab.addEventListener('click', function() { modal.classList.add('show'); });
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) modal.classList.remove('show');
+  });
+  if (closeBtn) closeBtn.addEventListener('click', function() { modal.classList.remove('show'); });
+
+  if (modeSeg) modeSeg.addEventListener('click', function(e) {
+    var btn = e.target.closest('.segment-btn');
+    if (!btn) return;
+    modeSeg.querySelectorAll('.segment-btn').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+  });
+
+  if (genBtn) genBtn.addEventListener('click', async function() {
+    var theme = (themeInput && themeInput.value || '').trim();
+    if (!theme) return self.showToast('テーマを入力してください', 'error');
+    var modeBtn = modeSeg.querySelector('.segment-btn.active');
+    var mode = modeBtn ? modeBtn.getAttribute('data-mode') : 'normal';
+    localStorage.setItem('insight_master_ai_settings', JSON.stringify({ theme: theme, mode: mode, tone: '' }));
+    results.innerHTML = '';
+    loading.style.display = 'flex';
+    try {
+      var r = await self.api('generatePostWithAI', { theme: theme, mode: mode, count: 3 });
+      var items = r.results || [];
+      var html = '';
+      items.forEach(function(item) {
+        var text = item.text || item;
+        html += '<div class="card card-relative">' +
+          '<div class="text-body">' + self.escapeHtml(text) + '</div>' +
+          '<div class="btn-group mt-12">' +
+            '<button class="btn btn-secondary btn-small quick-share" data-text="' + self.escapeAttr(text) + '">📤 Threadsで開く</button>' +
+            '<button class="btn btn-secondary btn-small quick-save" data-text="' + self.escapeAttr(text) + '">下書き保存</button>' +
+          '</div>' +
+        '</div>';
+      });
+      results.innerHTML = html || '<div class="text-caption">結果がありません</div>';
+    } catch (e) {
+      results.innerHTML = '<div class="text-caption">生成エラー: ' + e.message + '</div>';
+    } finally {
+      loading.style.display = 'none';
+    }
+  });
+
+  results.addEventListener('click', function(e) {
+    var share = e.target.closest('.quick-share');
+    if (share) {
+      var text = share.getAttribute('data-text') || '';
+      if (navigator.share) {
+        navigator.share({ text: text });
+      } else {
+        self.copyToClipboard(text);
+        window.open('https://www.threads.net', '_blank');
+      }
+      return;
+    }
+    var save = e.target.closest('.quick-save');
+    if (save) {
+      var t = save.getAttribute('data-text') || '';
+      self.api('saveDraft', { text: t, type: 'manual', source: 'quick' }).then(function(){
+        self.showToast('保存しました', 'success');
+      }).catch(function(err){ self.showToast(err.message, 'error'); });
+    }
+  });
+};
+
+</script>

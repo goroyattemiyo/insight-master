@@ -1,0 +1,522 @@
+﻿<script>
+// ===========================================
+// Dashboard 画面（修正版）
+// ===========================================
+App.renderDashboardContent = function() {
+  var u = this.state.user || {};
+  var activeAcc = this.state.activeAccount;
+  var displayName = activeAcc ? activeAcc.username : (u.username || '---');
+  var displayPic = activeAcc ? activeAcc.profilePicUrl : (u.profilePicUrl || '');
+
+  var showGeminiBanner = !this.state.settings.hasGeminiKey && !sessionStorage.getItem('hideGeminiBanner');
+
+  return '<div class="screen-content">' +
+    '<div class="card"><div class="flex-row gap-12">' +
+  (displayPic ? '<img src="' + displayPic + '" class="avatar">' : '<div class="avatar-placeholder">👤</div>') +
+  '<div><div class="text-subheading">@' + this.escapeHtml(displayName) + '</div>' +
+  '<div class="text-caption">このアカウントの分析データを表示中</div></div></div></div>' +
+    (showGeminiBanner ?
+      '<div class="card warning-banner card-no-border">' +
+        '<div class="flex-between mb-8">' +
+          '<div class="flex-row gap-8">' +
+            '<div class="icon-lg">✨</div>' +
+            '<div class="text-subheading">AI機能を有効にしましょう</div>' +
+          '</div>' +
+          '<button id="closeGeminiBanner" class="btn btn-secondary btn-small">×</button>' +
+        '</div>' +
+        '<div class="text-body mb-12">Gemini APIキーを設定すると、AI投稿生成・分析レポート・改善提案が使えるようになります。</div>' +
+        '<button id="goGeminiSettings" class="btn btn-small">APIキーを設定する</button>' +
+      '</div>' : '') +
+    '<div id="autoRefreshIndicator" class="card mb-8" style="display:none;padding:12px 16px;">' +
+      '<div class="flex-row gap-10" style="align-items:center;">' +
+        '<div class="loading-spinner" style="width:18px;height:18px;"></div>' +
+        '<div>' +
+          '<div class="text-subheading">自動更新中</div>' +
+          '<div class="text-caption">最新データを取得しています...</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    // ★FIX BUG-2: 二重描画ブロックを削除（上の1ブロックのみ残す）
+      this.renderTips([
+      { title: '📊 ビュー数の見方', body: '過去7日間の総閲覧数です。前週と比較して増減を確認しましょう。急増した日があれば、その日の投稿が刺さった証拠です。' },
+      { title: '📈 エンゲージメント率（ER）とは', body: 'ER =（いいね＋返信＋リポスト＋引用）÷ ビュー × 100。<br><b>1%未満</b>: 要改善 / <b>1〜3%</b>: 平均的 / <b>3〜6%</b>: 優秀 / <b>6%以上</b>: バズの可能性大。あなたの現在のERを下の投稿パフォーマンスで確認してください。' },
+      { title: '👥 フォロワー属性の活用法', body: '国・都市・年齢・性別を見て「誰に届いているか」を把握。例えば35-44歳の日本男性が多いなら、その層に刺さるテーマ（仕事術・副業・生活改善など）を選ぶと効果的です。' },
+      { title: '🤖 AIへの活かし方', body: '「AI生成」→「📊 分析ベース」を使うと、ここの数値が自動でAIに渡されます。高ERの投稿パターンを学習して、次のバズ投稿を提案してくれます。' },
+      { title: '📋 手動投稿の流れ', body: 'AI生成 → 下書き保存 → 下書き画面でコピー → Threadsアプリに貼り付けて投稿。コピーボタン1つで手軽に投稿できます。' }
+    ]) +
+    // ★SKELETON: インサイトエリアにスケルトンを初期表示
+    '<div id="userInsightsArea">' + this.renderSkeletonDashboard() + '</div>' +
+    '<div class="card mb-16" id="followerChartCard">' +
+      '<div class="flex-row gap-8 mb-12">' +
+        '<div class="card-title" style="flex:1;">📈 フォロワー推移</div>' +
+        '<div class="btn-group">' +
+          '<button class="subtab active" data-follower-days="7">7日</button>' +
+          '<button class="subtab" data-follower-days="30">30日</button>' +
+          '<button class="subtab" data-follower-days="90">90日</button>' +
+        '</div>' +
+      '</div>' +
+      '<div id="followerSummary" class="flex-row gap-12 mb-12"></div>' +
+      '<canvas id="followerCanvas" width="600" height="200" style="width:100%;height:200px;"></canvas>' +
+      '<div class="flex-row gap-8 mt-8">' +
+        '<button id="exportFollowerCSV" class="btn btn-secondary btn-small" style="flex:1;">📥 CSV</button>' +
+        '<button id="exportFollowerImg" class="btn btn-secondary btn-small" style="flex:1;">📷 画像保存</button>' +
+      '</div>' +
+    '</div>' +
+    '<div id="demographicsArea"></div>' +
+    '<div id="summaryArea"></div>' +
+    '<div class="card">' +
+      '<div id="lastUpdateLabel" class="text-caption mb-8">最終更新: -</div>' +
+      '<button id="refreshDashboardBtn" class="btn btn-primary btn-full" style="margin-bottom:8px;">🔄 @' + this.escapeHtml(displayName) + ' のデータを更新</button>' +
+      '<button id="goToDetailBtn" class="btn btn-secondary btn-full">📈 詳細分析・時間帯分析</button>' +
+      // ★FIX: 競合分析ボタン削除
+    '</div>' +
+    // ★FIX BUG-6: AI分析カードを独立（ネスト解消）
+    '<div class="card">' +
+      '<div class="card-title">🤖 AI分析</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<button id="aiReportBtn" class="btn btn-small btn-secondary" style="flex:1;min-width:140px;">📊 分析レポート</button>' +
+        '<button id="aiSuggestBtn" class="btn btn-small btn-secondary" style="flex:1;min-width:140px;">💡 改善提案</button>' +
+      '</div>' +
+      '<div id="aiDashboardResult" style="margin-top:12px;"></div>' +
+    '</div>' +
+  '</div>';
+};
+
+App.loadDashboard = async function() {
+  var self = this;
+
+  var closeBanner = document.getElementById('closeGeminiBanner');
+  if (closeBanner) {
+    closeBanner.addEventListener('click', function() {
+      sessionStorage.setItem('hideGeminiBanner', '1');
+      var card = this.closest('.card');
+      if (card) card.remove();
+    });
+  }
+  var goSettings = document.getElementById('goGeminiSettings');
+  if (goSettings) {
+    goSettings.addEventListener('click', function() { self.showScreen('settings'); });
+  }
+  
+  var refreshHandler = async function() {
+    var btn = this;
+    btn.disabled = true; btn.textContent = '更新中（1〜2分かかります）...';
+    try {
+      self.showToast('投稿データを取得中...', 'info');
+      var fetchResult = await self.api('fetchAndStorePostAnalytics', {});
+      self.showToast(fetchResult.accountUsername ? '@' + fetchResult.accountUsername + ': ' + fetchResult.total + '件取得' : '取得完了', 'info');
+      self.showToast('時間帯分析を生成中...', 'info');
+      await self.api('generateTimeAnalysis', {});
+      self.showToast('データ更新完了！', 'success');
+    } catch (e) { self.showToast('更新エラー: ' + e.message, 'error'); }
+    btn.disabled = false;
+    var acc = self.state.activeAccount;
+    btn.textContent = '🔄 @' + (acc ? acc.username : 'ユーザー') + ' のデータを更新';
+    self.loadDashboardData_();
+  };
+  self.refreshDashboardHandler_ = refreshHandler;
+  var refreshBtn = document.getElementById('refreshDashboardBtn');
+  if (refreshBtn && !refreshBtn.dataset.bound) {
+    refreshBtn.dataset.bound = 'true';
+    refreshBtn.addEventListener('click', refreshHandler);
+  }
+  document.getElementById('goToDetailBtn').addEventListener('click', function() {
+    self.state.analyticsTab = 'posts';
+    self.showScreen('analytics');
+  });
+
+  await this.loadDashboardData_();
+  this.bindDashboardRefreshButtons_();
+  this.updateLastFetchLabel_();
+  this.maybeAutoRefreshDashboard_();
+
+  var aiReportBtn = document.getElementById('aiReportBtn');
+  if (aiReportBtn) {
+    aiReportBtn.addEventListener('click', function() {
+      self.dashboardRunAI_('generateAnalysisReport', '📊 分析レポート生成中...', this);
+    });
+  }
+  var aiSuggestBtn = document.getElementById('aiSuggestBtn');
+  if (aiSuggestBtn) {
+    aiSuggestBtn.addEventListener('click', function() {
+      self.dashboardRunAI_('generateImprovementSuggestions', '💡 改善提案生成中...', this);
+    });
+  }
+};
+
+App.loadDashboardData_ = async function() {
+  var uiArea = document.getElementById('userInsightsArea');
+  var demoArea = document.getElementById('demographicsArea');
+  var sumArea = document.getElementById('summaryArea');
+  var fetchedOk = false;
+  var insPromise = this.api('fetchUserInsights', { sinceDays: 7 })
+    .then(function(value) { return { ok: true, value: value }; })
+    .catch(function(error) { return { ok: false, error: error }; });
+  var analyticsPromise = this.api('getAnalyticsData', { periodDays: 7 })
+    .then(function(value) { return { ok: true, value: value }; })
+    .catch(function(error) { return { ok: false, error: error }; });
+  var results = await Promise.all([insPromise, analyticsPromise]);
+  var insResult = results[0];
+  var analyticsResult = results[1];
+  if (insResult.ok) {
+    var ins = insResult.value;
+    this.state.userInsights = ins;
+    var accLabel = ins.accountUsername ? '@' + this.escapeHtml(ins.accountUsername) : '';
+    
+    uiArea.innerHTML = '<div class="card"><div class="card-title">' + accLabel + ' 過去7日間のインサイト</div>' +
+      '<div class="metric-grid">' +
+        this.renderMetricCard('👁', 'ビュー', ins.views) +
+        this.renderMetricCard('👥', 'フォロワー', ins.followersCount) +
+        this.renderMetricCard('❤️', 'いいね', ins.likes) +
+        this.renderMetricCard('💬', '返信', ins.replies) +
+        this.renderMetricCard('🔄', 'リポスト', ins.reposts) +
+        this.renderMetricCard('💎', '引用', ins.quotes) +
+        this.renderMetricCard('🔗', 'リンククリック', ins.clicks) +
+      '</div></div>';
+    fetchedOk = true;
+    if (ins.demographics) {
+      demoArea.innerHTML = this.renderDemographics_(ins.demographics);
+    }
+  } else {
+    var insMsg = (insResult.error && insResult.error.message) ? insResult.error.message : '不明なエラー';
+    uiArea.innerHTML = '<div class="card empty-state">' +
+      '<div class="empty-state-icon">⚠️</div>' +
+      '<div class="empty-state-title">インサイトを取得できませんでした</div>' +
+      '<div class="empty-state-desc">' + this.escapeHtml(insMsg) + '</div>' +
+      '</div>';
+    demoArea.innerHTML = '';
+  }
+  if (analyticsResult.ok) {
+    var a = analyticsResult.value;
+    if (a && a.summary && a.summary.totalPosts > 0) {
+      var s = a.summary;
+      sumArea.innerHTML = '<div class="card"><div class="card-title">投稿パフォーマンス（7日間）</div>' +
+        '<div class="metric-grid">' +
+          this.renderMetricCard('📝', '投稿数', s.totalPosts) +
+          this.renderMetricCard('📈', '平均ER', s.avgEngagementRate + '%') +
+          this.renderMetricCard('👁', '総ビュー', s.totalViews) +
+          this.renderMetricCard('❤️', '総いいね', s.totalLikes) +
+          this.renderMetricCard('🔄', '総リポスト', s.totalReposts) +
+          this.renderMetricCard('📤', '総シェア', s.totalShares) +
+        '</div></div>';
+    } else {
+      sumArea.innerHTML = '<div class="card empty-state">' +
+        '<div class="empty-state-icon">📥</div>' +
+        '<div class="empty-state-title">投稿データがありません</div>' +
+        '<div class="empty-state-desc">まずは最新データを取得してください</div>' +
+        '<button id="summaryRefreshBtn" class="btn btn-primary btn-full">🔄 データを更新</button>' +
+      '</div>';
+      this.bindDashboardRefreshButtons_();
+    }
+    fetchedOk = true;
+  }
+
+  if (fetchedOk) {
+    var accountId = (this.state.activeAccount && this.state.activeAccount.accountId) || 'default';
+    var key = 'insight_master_last_fetch_' + accountId;
+    localStorage.setItem(key, String(Date.now()));
+    this.updateLastFetchLabel_();
+  }
+};
+
+App.bindDashboardRefreshButtons_ = function() {
+  var handler = this.refreshDashboardHandler_;
+  if (!handler) return;
+  var btns = [
+    document.getElementById('refreshDashboardBtn'),
+    document.getElementById('summaryRefreshBtn')
+  ];
+  btns.forEach(function(btn) {
+    if (btn && !btn.dataset.bound) {
+      btn.dataset.bound = 'true';
+      btn.addEventListener('click', handler);
+    }
+  });
+};
+
+App.maybeAutoRefreshDashboard_ = function() {
+  var self = this;
+  if (this.dashboardAutoRefreshRunning_) return;
+  var accountId = (this.state.activeAccount && this.state.activeAccount.accountId) || 'default';
+  var key = 'insight_master_last_fetch_' + accountId;
+  var last = parseInt(localStorage.getItem(key) || '0', 10);
+  if (last && (Date.now() - last) < (6 * 60 * 60 * 1000)) return;
+  var indicator = document.getElementById('autoRefreshIndicator');
+  if (indicator) indicator.style.display = 'block';
+  this.dashboardAutoRefreshRunning_ = true;
+  Promise.resolve()
+    .then(function() { return Promise.all([
+      self.api('fetchAndStorePostAnalytics', {}),
+      self.api('generateTimeAnalysis', {})
+    ]); })
+    .then(function() { return self.loadDashboardData_(); })
+    .catch(function() { /* ignore */ })
+    .finally(function() {
+      if (indicator) indicator.style.display = 'none';
+      self.dashboardAutoRefreshRunning_ = false;
+    });
+};
+
+App.updateLastFetchLabel_ = function() {
+  var accountId = (this.state.activeAccount && this.state.activeAccount.accountId) || 'default';
+  var key = 'insight_master_last_fetch_' + accountId;
+  var last = parseInt(localStorage.getItem(key) || '0', 10);
+  var label = document.getElementById('lastUpdateLabel');
+  if (!label) return;
+  if (!last) {
+    label.textContent = '最終更新: -';
+    label.removeAttribute('title');
+    return;
+  }
+  label.textContent = '最終更新: ' + this.formatTimeAgo_(last);
+  label.setAttribute('title', new Date(last).toLocaleString('ja-JP'));
+};
+
+App.formatTimeAgo_ = function(ts) {
+  var diff = Math.max(0, Date.now() - ts);
+  var min = Math.floor(diff / 60000);
+  if (min < 1) return 'たった今';
+  if (min < 60) return min + '分前';
+  var hours = Math.floor(min / 60);
+  if (hours < 24) return hours + '時間前';
+  var days = Math.floor(hours / 24);
+  return days + '日前';
+};
+
+App.renderDemographics_ = function(demo) {
+  var html = '<div class="card"><div class="card-title">👥 フォロワー属性</div>';
+  html += '<div class="grid-2" style="gap:16px;">';
+  var sections = [
+    { key: 'country', icon: '🌍', label: '国', max: 5 },
+    { key: 'city',    icon: '🏙️', label: '都市', max: 5 },
+    { key: 'age',     icon: '📊', label: '年齢', max: 10 },
+    { key: 'gender',  icon: '👤', label: '性別', max: 5 }
+  ];
+  for (var s = 0; s < sections.length; s++) {
+    var sec = sections[s];
+    var data = demo[sec.key];
+    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+      html += '<div>';
+      html += '<div style="font-weight:600;font-size:13px;margin-bottom:8px;">' + sec.icon + ' ' + sec.label + '</div>';
+      html += this.renderDemoBreakdown_(data, sec.max);
+      html += '</div>';
+    }
+  }
+  html += '</div></div>';
+  return html;
+};
+
+App.renderDemoBreakdown_ = function(data, maxItems) {
+  var html = '';
+  var genderMap = { M: '男性', F: '女性', U: '未設定' };
+  var items = [];
+  var keys = Object.keys(data);
+  for (var i = 0; i < keys.length; i++) {
+    items.push({ label: keys[i], value: data[keys[i]] });
+  }
+  items.sort(function(a, b) { return b.value - a.value; });
+  if (items.length > maxItems) items = items.slice(0, maxItems);
+  var maxVal = items.length > 0 ? items[0].value : 1;
+  var total = 0;
+  for (var i = 0; i < items.length; i++) total += items[i].value;
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    var label = genderMap[item.label] || item.label;
+    var pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
+    var barWidth = maxVal > 0 ? Math.round((item.value / maxVal) * 100) : 0;
+    html += '<div style="margin-bottom:6px;">';
+    html += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">';
+    html += '<span>' + label + '</span>';
+    html += '<span style="color:var(--text-secondary);">' + item.value + '人 (' + pct + '%)</span>';
+    html += '</div>';
+    html += '<div class="demo-bar-track">';
+    html += '<div class="demo-bar-fill" style="width:' + barWidth + '%;"></div>';
+    html += '</div></div>';
+  }
+  return html;
+};
+
+App.dashboardRunAI_ = function(action, loadingText, btn) {
+  var self = this;
+  var resultDiv = document.getElementById('aiDashboardResult');
+  if (!resultDiv) return;
+  btn.disabled = true;
+  var origText = btn.textContent;
+  btn.textContent = loadingText;
+  resultDiv.innerHTML = '<div style="text-align:center;padding:20px;"><div class="loading-spinner" style="margin:0 auto 12px;"></div><div class="text-caption">Gemini AIが分析中（15〜45秒）...</div></div>';
+  this.api(action, { periodDays: 30 }).then(function(res) {
+    btn.disabled = false;
+    btn.textContent = origText;
+    var content = res.report || res.suggestions || '';
+    if (!content) {
+      resultDiv.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;padding:12px;">結果を取得できませんでした</div>';
+      return;
+    }
+    resultDiv.innerHTML = '<div class="ai-result-container">' +
+      self.formatMarkdown_(content) +
+    '</div>';
+  }).catch(function(err) {
+    btn.disabled = false;
+    btn.textContent = origText;
+    resultDiv.innerHTML = '<div style="color:var(--error);font-size:13px;padding:12px;">' + self.escapeHtml(err.message || String(err)) + '</div>';
+  });
+};
+</script>
+
+// === フォロワー推移グラフ ===
+
+App.drawFollowerChart = function(canvasId, data) {
+  var canvas = document.getElementById(canvasId);
+  if (!canvas || !data || !data.dates || data.dates.length === 0) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  var W = rect.width, H = rect.height;
+  var pad = { top: 20, right: 16, bottom: 30, left: 48 };
+  var gW = W - pad.left - pad.right;
+  var gH = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  var counts = data.counts;
+  var mn = Math.min.apply(null, counts);
+  var mx = Math.max.apply(null, counts);
+  if (mn === mx) { mn = mn - 10; mx = mx + 10; }
+  var range = mx - mn;
+  mn = mn - range * 0.1;
+  mx = mx + range * 0.1;
+
+  function xPos(i) { return pad.left + (i / (counts.length - 1 || 1)) * gW; }
+  function yPos(v) { return pad.top + gH - ((v - mn) / (mx - mn)) * gH; }
+
+  // Grid lines
+  var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+  ctx.lineWidth = 1;
+  for (var g = 0; g <= 4; g++) {
+    var gy = pad.top + (gH / 4) * g;
+    ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(W - pad.right, gy); ctx.stroke();
+  }
+
+  // Gradient fill
+  var grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + gH);
+  grad.addColorStop(0, isDark ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.15)');
+  grad.addColorStop(1, 'rgba(99,102,241,0)');
+  ctx.beginPath();
+  ctx.moveTo(xPos(0), yPos(counts[0]));
+  for (var i = 1; i < counts.length; i++) ctx.lineTo(xPos(i), yPos(counts[i]));
+  ctx.lineTo(xPos(counts.length - 1), pad.top + gH);
+  ctx.lineTo(xPos(0), pad.top + gH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(xPos(0), yPos(counts[0]));
+  for (var i = 1; i < counts.length; i++) ctx.lineTo(xPos(i), yPos(counts[i]));
+  ctx.strokeStyle = '#6366f1';
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Dots
+  for (var i = 0; i < counts.length; i++) {
+    ctx.beginPath();
+    ctx.arc(xPos(i), yPos(counts[i]), 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#6366f1';
+    ctx.fill();
+    ctx.strokeStyle = isDark ? '#1e1e2e' : '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // X labels
+  ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  var step = counts.length <= 7 ? 1 : counts.length <= 30 ? 5 : 15;
+  for (var i = 0; i < data.dates.length; i += step) {
+    ctx.fillText(data.dates[i], xPos(i), H - 8);
+  }
+
+  // Y labels
+  ctx.textAlign = 'right';
+  for (var g = 0; g <= 4; g++) {
+    var val = Math.round(mx - ((mx - mn) / 4) * g);
+    var gy = pad.top + (gH / 4) * g;
+    ctx.fillText(val.toLocaleString(), pad.left - 6, gy + 4);
+  }
+};
+
+App.renderFollowerSummary_ = function(data) {
+  var el = document.getElementById('followerSummary');
+  if (!el || !data || data.counts.length === 0) {
+    if (el) el.innerHTML = '<div class="text-caption">データがありません。設定画面でトリガーを有効にしてください。</div>';
+    return;
+  }
+  var current = data.counts[data.counts.length - 1];
+  var prev = data.counts.length > 1 ? data.counts[data.counts.length - 2] : current;
+  var first = data.counts[0];
+  var dailyChange = current - prev;
+  var periodChange = current - first;
+  var periodPct = first > 0 ? Math.round(periodChange / first * 1000) / 10 : 0;
+  var trendIcon = dailyChange > 0 ? '📈' : dailyChange < 0 ? '📉' : '➡️';
+  var trendColor = dailyChange > 0 ? 'var(--success)' : dailyChange < 0 ? 'var(--error)' : 'var(--text-secondary)';
+
+  el.innerHTML =
+    '<div style="flex:1;text-align:center;">' +
+      '<div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + current.toLocaleString() + '</div>' +
+      '<div class="text-caption">フォロワー</div>' +
+    '</div>' +
+    '<div style="flex:1;text-align:center;">' +
+      '<div style="font-size:18px;font-weight:600;color:' + trendColor + ';">' + trendIcon + ' ' + (dailyChange >= 0 ? '+' : '') + dailyChange + '</div>' +
+      '<div class="text-caption">前日比</div>' +
+    '</div>' +
+    '<div style="flex:1;text-align:center;">' +
+      '<div style="font-size:18px;font-weight:600;color:' + trendColor + ';">' + (periodPct >= 0 ? '+' : '') + periodPct + '%</div>' +
+      '<div class="text-caption">期間変動</div>' +
+    '</div>';
+};
+
+App.loadFollowerChart_ = async function(days) {
+  try {
+    var data = await this.api('getFollowerHistory', { days: days || 7 });
+    if (data) {
+      this.followerData_ = data;
+      this.renderFollowerSummary_(data);
+      this.drawFollowerChart('followerCanvas', data);
+    }
+  } catch (e) {
+    console.error('loadFollowerChart_ error:', e);
+  }
+};
+
+App.bindFollowerChartEvents_ = function() {
+  var self = this;
+  var btns = document.querySelectorAll('[data-follower-days]');
+  btns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      btns.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      self.loadFollowerChart_(parseInt(btn.getAttribute('data-follower-days')));
+    });
+  });
+
+  var csvBtn = document.getElementById('exportFollowerCSV');
+  if (csvBtn) csvBtn.addEventListener('click', function() {
+    var d = self.followerData_;
+    if (!d || !d.dates.length) { self.showToast('データがありません', 'error'); return; }
+    var headers = ['日付', 'フォロワー数', '前日比'];
+    var rows = d.dates.map(function(date, i) { return [date, d.counts[i], d.changes[i]]; });
+    self.exportCSV('followers', headers, rows);
+  });
+
+  var imgBtn = document.getElementById('exportFollowerImg');
+  if (imgBtn) imgBtn.addEventListener('click', function() {
+    self.exportAsImage('followerCanvas', 'followers_chart');
+  });
+};

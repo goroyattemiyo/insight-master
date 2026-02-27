@@ -1,0 +1,492 @@
+<script>
+// ============================================
+// screen_keywords.html — キーワード検索画面
+// ダークモード対応・詳細フィルター・スタイル分析タブ付き
+// ============================================
+
+App.renderKeywordsContent = function() {
+  var history = this.state.searchHistory || [];
+  var html = '<div class="keywords-screen">';
+
+  html += this.renderTips([
+    { title: '🔍 キーワード検索の活用法', body: 'トレンドのキーワードで検索して、他のユーザーの投稿を参考にしましょう。人気投稿の文体・絵文字の使い方・ハッシュタグをチェック。' },
+    { title: '👤 投稿者フィルター（競合分析）', body: '「詳細フィルター」の投稿者欄にユーザー名を入力すると、特定ユーザーの投稿のみ絞り込めます。競合分析に活用できます。' },
+    { title: '📊 スタイル分析タブ', body: '検索結果の「スタイル分析」タブでは、メディアタイプ・投稿時間帯・文字数の傾向を自動分析します。バズる投稿のパターンを発見しましょう。' },
+    { title: '🤖 検索 → AI分析の活用', body: '検索で見つけた良い投稿のテーマやスタイルを、AI生成のテーマ入力に活かしましょう。' }
+  ]);
+
+  // 検索フォーム
+  html += '<div class="card">';
+  html += '<h3 style="margin:0 0 14px;">🔍 キーワード検索</h3>';
+  html += '<div class="btn-group mb-12">';
+  html += '<input type="text" id="kw-input" class="input" placeholder="キーワードを入力…" style="flex:1;" onkeydown="if(event.key===\'Enter\')App.kwExecuteSearch()">';
+  html += '<button onclick="App.kwExecuteSearch()" class="btn btn-primary" style="white-space:nowrap;padding:10px 20px;">検索</button>';
+  html += '</div>';
+
+  // 基本オプション
+  html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">';
+  html += '<select id="kw-search-type" class="input" style="flex:1;min-width:100px;padding:8px 12px;font-size:13px;">';
+  html += '<option value="TOP">人気順</option><option value="RECENT">新着順</option></select>';
+  html += '<select id="kw-search-mode" class="input" style="flex:1;min-width:100px;padding:8px 12px;font-size:13px;">';
+  html += '<option value="KEYWORD">キーワード</option><option value="TAG">トピックタグ</option></select>';
+  html += '<select id="kw-media-type" class="input" style="flex:1;min-width:100px;padding:8px 12px;font-size:13px;">';
+  html += '<option value="">全メディア</option><option value="TEXT">テキスト</option><option value="IMAGE">画像</option><option value="VIDEO">動画</option></select>';
+  html += '</div>';
+
+  // 詳細フィルター
+  html += '<details id="kw-advanced" style="margin-bottom:14px;">';
+  html += '<summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-secondary);user-select:none;">▶ 詳細フィルター</summary>';
+  html += '<div style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">';
+  html += '<div style="display:flex;gap:8px;align-items:center;"><label style="font-size:13px;min-width:72px;color:var(--text-secondary);">投稿者</label>';
+  html += '<input type="text" id="kw-author" class="input" placeholder="username（@なし）" style="flex:1;padding:8px 12px;font-size:13px;"></div>';
+  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><label style="font-size:13px;min-width:72px;color:var(--text-secondary);">期間</label>';
+  html += '<input type="date" id="kw-since" class="input" style="flex:1;min-width:110px;padding:8px 12px;font-size:13px;">';
+  html += '<span style="color:var(--text-secondary);">〜</span>';
+  html += '<input type="date" id="kw-until" class="input" style="flex:1;min-width:110px;padding:8px 12px;font-size:13px;"></div>';
+  html += '<div style="display:flex;gap:8px;align-items:center;"><label style="font-size:13px;min-width:72px;color:var(--text-secondary);">取得件数</label>';
+  html += '<select id="kw-limit" class="input" style="flex:1;padding:8px 12px;font-size:13px;">';
+  html += '<option value="25">25件</option><option value="50">50件</option><option value="100">100件（最大）</option></select></div>';
+  html += '</div></details>';
+
+  // 検索履歴
+  if (history.length > 0) {
+    html += '<div style="margin-top:4px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+    html += '<span class="text-caption">最近の検索</span>';
+    html += '<button onclick="App.kwClearHistory()" style="font-size:11px;color:var(--text-secondary);background:none;border:none;cursor:pointer;text-decoration:underline;">クリア</button></div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+    for (var i = 0; i < history.length; i++) {
+      var safeKw = this.escapeAttr(history[i].keyword);
+      var modeIcon = history[i].searchMode === 'TAG' ? '🏷️' : '🔤';
+      html += '<span onclick="App.kwHistorySearch(\'' + safeKw + '\')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:20px;font-size:12px;cursor:pointer;color:var(--text-primary);transition:background 0.2s;">';
+      html += modeIcon + ' ' + this.escapeHtml(history[i].keyword);
+      html += '<span style="color:var(--text-secondary);font-size:10px;margin-left:2px;">(' + (history[i].resultCount || 0) + ')</span></span>';
+    }
+    html += '</div></div>';
+  }
+
+  html += '</div>';
+  html += '<div id="kw-results"></div>';
+  html += '</div>';
+  return html;
+};
+
+// ============================================
+// 初期化
+// ============================================
+App.loadKeywords = function() {
+  var self = this;
+  this.api('getSearchHistory', {})
+    .then(function(data) {
+      self.state.searchHistory = Array.isArray(data) ? data : [];
+      var panel = document.getElementById('create-tab-search');
+      if (panel) panel.innerHTML = self.renderKeywordsContent();
+      self.bindTipsEvents();
+    })
+    .catch(function() { self.state.searchHistory = []; });
+};
+
+App.kwHistorySearch = function(keyword) {
+  var input = document.getElementById('kw-input');
+  if (input) { input.value = keyword; this.kwExecuteSearch(); }
+};
+
+App.kwClearHistory = function() {
+  if (!confirm('検索履歴をクリアしますか？')) return;
+  var self = this;
+  this.api('clearSearchHistory', {}).then(function() {
+    self.state.searchHistory = [];
+    self.showToast('検索履歴をクリアしました', 'success');
+    var panel = document.getElementById('create-tab-search');
+    if (panel) panel.innerHTML = self.renderKeywordsContent();
+    self.bindTipsEvents();
+  }).catch(function(err) { self.showToast('クリアに失敗しました', 'error'); });
+};
+
+// ============================================
+// 検索実行
+// ============================================
+App.kwExecuteSearch = function() {
+  var input = document.getElementById('kw-input');
+  var keyword = input ? input.value.trim() : '';
+  if (!keyword) { this.showToast('キーワードを入力してください', 'error'); return; }
+
+  var params = {
+    keyword: keyword,
+    searchType: (document.getElementById('kw-search-type') || {}).value || 'TOP',
+    searchMode: (document.getElementById('kw-search-mode') || {}).value || 'KEYWORD',
+    mediaType: (document.getElementById('kw-media-type') || {}).value || '',
+    limit: parseInt((document.getElementById('kw-limit') || {}).value) || 25
+  };
+
+  var author = document.getElementById('kw-author');
+  if (author && author.value.trim()) params.authorUsername = author.value.trim().replace(/^@/, '');
+
+  var sinceEl = document.getElementById('kw-since');
+  if (sinceEl && sinceEl.value) {
+    var sd = new Date(sinceEl.value); sd.setHours(0,0,0,0);
+    params.since = Math.floor(sd.getTime() / 1000);
+  }
+  var untilEl = document.getElementById('kw-until');
+  if (untilEl && untilEl.value) {
+    var ud = new Date(untilEl.value); ud.setHours(23,59,59,999);
+    params.until = Math.floor(ud.getTime() / 1000);
+  }
+
+  var resultsDiv = document.getElementById('kw-results');
+  if (resultsDiv) {
+      resultsDiv.innerHTML = '<div class="ai-result-box text-center">' +
+      '<div class="loading-spinner" style="margin:0 auto 12px;"></div>' +
+      '<div style="color:var(--text-secondary);">「' + this.escapeHtml(keyword) + '」を検索中…</div></div>';
+  }
+
+  var self = this;
+  this.api('searchKeyword', params).then(function(data) {
+    self.state.kwLastResult = data;
+    if (data.source === 'gemini_fallback') self.kwRenderGeminiFallback_(data, keyword);
+    else self.kwRenderThreadsResults_(data, keyword);
+
+    // ローカル履歴更新
+    self.state.searchHistory = self.state.searchHistory || [];
+    var found = false;
+    for (var i = 0; i < self.state.searchHistory.length; i++) {
+      if (self.state.searchHistory[i].keyword === keyword) {
+        self.state.searchHistory[i].resultCount = data.totalCount || 0;
+        found = true; break;
+      }
+    }
+    if (!found) {
+      self.state.searchHistory.unshift({ keyword: keyword, searchMode: data.searchMode || 'KEYWORD', resultCount: data.totalCount || 0, searchedAt: new Date().toISOString() });
+      if (self.state.searchHistory.length > 20) self.state.searchHistory.pop();
+    }
+  }).catch(function(err) {
+    if (resultsDiv) {
+      resultsDiv.innerHTML = '<div class="ai-result-box text-center">' +
+        '<div style="font-size:32px;margin-bottom:8px;">❌</div>' +
+        '<div style="color:#e74c3c;white-space:pre-wrap;">' + self.escapeHtml(err.message) + '</div></div>';
+    }
+  });
+};
+
+// ============================================
+// Threads API 結果表示
+// ============================================
+App.kwRenderThreadsResults_ = function(data, keyword) {
+  var resultsDiv = document.getElementById('kw-results');
+  if (!resultsDiv) return;
+  var posts = data.posts || [];
+  var analysis = data.styleAnalysis || {};
+  var html = '';
+
+  if (posts.length === 0) {
+    html += '<div class="card" style="text-align:center;padding:30px;"><div style="font-size:32px;margin-bottom:8px;">📭</div>';
+    html += '<div style="color:var(--text-secondary);">「' + this.escapeHtml(keyword) + '」の検索結果はありません</div></div>';
+    resultsDiv.innerHTML = html; return;
+  }
+
+  // サマリーカード
+  html += '<div class="card">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">';
+  html += '<h3 style="margin:0;">🔎 「' + this.escapeHtml(keyword) + '」の結果</h3>';
+  html += '<span class="text-caption">' + posts.length + '件</span></div>';
+
+  // メトリクスグリッド
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:8px;margin-bottom:14px;">';
+  var mediaLabels = { TEXT: '📝', IMAGE: '🖼️', VIDEO: '🎬', CAROUSEL_ALBUM: '📸' };
+  var mb = analysis.mediaBreakdown || {};
+  for (var mtype in mb) {
+    if (mb[mtype] > 0) {
+      html += '<div style="text-align:center;padding:8px;background:var(--bg-tertiary);border-radius:8px;">';
+      html += '<div style="font-size:16px;">' + (mediaLabels[mtype] || '📄') + '</div>';
+      html += '<div style="font-size:16px;font-weight:bold;">' + mb[mtype] + '</div>';
+      html += '<div style="font-size:10px;color:var(--text-secondary);">' + mtype + '</div></div>';
+    }
+  }
+  if (analysis.avgTextLength) {
+    html += '<div style="text-align:center;padding:8px;background:var(--bg-tertiary);border-radius:8px;">';
+    html += '<div style="font-size:16px;">📏</div><div style="font-size:16px;font-weight:bold;">' + analysis.avgTextLength + '</div>';
+    html += '<div style="font-size:10px;color:var(--text-secondary);">平均文字数</div></div>';
+  }
+  html += '</div>';
+
+  // AI分析ボタン
+  html += '<div style="text-align:center;"><button id="kw-ai-btn" onclick="App.kwRunAIAnalysis()" style="padding:8px 24px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">🤖 AIトレンド分析</button></div>';
+  html += '<div id="kw-ai-result"></div></div>';
+
+  // タブ
+  html += '<div class="card" style="padding:0;overflow:hidden;">';
+  html += '<div style="display:flex;border-bottom:1px solid var(--border-color);">';
+  html += '<button class="kw-tab active" data-kw-tab="posts" style="flex:1;padding:12px;background:none;border:none;font-weight:600;cursor:pointer;border-bottom:2px solid var(--accent-color);color:var(--text-primary);font-size:13px;">📋 投稿一覧 (' + posts.length + ')</button>';
+  html += '<button class="kw-tab" data-kw-tab="style" style="flex:1;padding:12px;background:none;border:none;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-secondary);font-size:13px;">📊 スタイル分析</button>';
+  html += '</div>';
+
+  html += '<div id="kw-tab-posts" style="padding:12px;">';
+  for (var p = 0; p < posts.length; p++) html += this.kwPostCard_(posts[p], p + 1);
+  html += '</div>';
+
+  html += '<div id="kw-tab-style" style="padding:16px;display:none;">';
+  html += this.kwRenderStyleAnalysis_(analysis, posts);
+  html += '</div></div>';
+
+  resultsDiv.innerHTML = html;
+  this.kwBindTabEvents_();
+  this.kwBindCopyEvents_();
+};
+
+// ============================================
+// タブ切り替え
+// ============================================
+App.kwBindTabEvents_ = function() {
+  var tabs = document.querySelectorAll('.kw-tab');
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var target = this.getAttribute('data-kw-tab');
+      tabs.forEach(function(t) {
+        t.classList.remove('active');
+        t.style.borderBottomColor = 'transparent';
+        t.style.color = 'var(--text-secondary)';
+      });
+      this.classList.add('active');
+      this.style.borderBottomColor = 'var(--accent-color)';
+      this.style.color = 'var(--text-primary)';
+      ['posts', 'style'].forEach(function(id) {
+        var el = document.getElementById('kw-tab-' + id);
+        if (el) el.style.display = (id === target) ? 'block' : 'none';
+      });
+    });
+  });
+};
+
+// ============================================
+// コピーボタン一括バインド（XSS安全）
+// ============================================
+App.kwBindCopyEvents_ = function() {
+  var self = this;
+  document.querySelectorAll('[data-kw-copy]').forEach(function(btn) {
+    if (btn.dataset.bound) return;
+    btn.dataset.bound = 'true';
+    btn.addEventListener('click', function() {
+      self.copyToClipboard(this.getAttribute('data-kw-copy'));
+    });
+  });
+};
+
+// ============================================
+// スタイル分析タブ
+// ============================================
+App.kwRenderStyleAnalysis_ = function(analysis, posts) {
+  if (!analysis || !analysis.totalPosts) return '<div style="text-align:center;color:var(--text-secondary);padding:20px;">分析データがありません</div>';
+  var html = '';
+  var total = analysis.totalPosts;
+
+  // メディアタイプ内訳
+  html += '<div style="margin-bottom:24px;"><h4 style="margin:0 0 10px;font-size:14px;">📸 メディアタイプ内訳</h4>';
+  var mediaColors = { TEXT: '#667eea', IMAGE: '#27ae60', VIDEO: '#e74c3c', CAROUSEL_ALBUM: '#f39c12' };
+  var mediaNames = { TEXT: 'テキスト', IMAGE: '画像', VIDEO: '動画', CAROUSEL_ALBUM: 'カルーセル' };
+  var mb = analysis.mediaBreakdown || {};
+  for (var mt in mb) {
+    var pct = total > 0 ? Math.round((mb[mt] / total) * 100) : 0;
+    html += '<div style="margin-bottom:6px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">';
+    html += '<span>' + (mediaNames[mt] || mt) + '</span><span style="color:var(--text-secondary);">' + mb[mt] + '件 (' + pct + '%)</span></div>';
+    html += '<div style="height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;">';
+    html += '<div style="height:100%;width:' + pct + '%;background:' + (mediaColors[mt] || '#999') + ';border-radius:4px;transition:width 0.5s;"></div></div></div>';
+  }
+  html += '</div>';
+
+  // 文字数分布
+  html += '<div style="margin-bottom:24px;"><h4 style="margin:0 0 10px;font-size:14px;">📏 文字数分布</h4>';
+  var buckets = analysis.textLengthBuckets || {};
+  var bDefs = [
+    { key: 'short', label: '短文（〜50字）', color: '#667eea' },
+    { key: 'medium', label: '中文（51〜150字）', color: '#27ae60' },
+    { key: 'long', label: '長文（151〜300字）', color: '#f39c12' },
+    { key: 'verylong', label: '超長文（301字〜）', color: '#e74c3c' }
+  ];
+  for (var b = 0; b < bDefs.length; b++) {
+    var bd = bDefs[b], cnt = buckets[bd.key] || 0, bpct = total > 0 ? Math.round((cnt / total) * 100) : 0;
+    html += '<div style="margin-bottom:6px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">';
+    html += '<span>' + bd.label + '</span><span style="color:var(--text-secondary);">' + cnt + '件 (' + bpct + '%)</span></div>';
+    html += '<div style="height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;">';
+    html += '<div style="height:100%;width:' + bpct + '%;background:' + bd.color + ';border-radius:4px;"></div></div></div>';
+  }
+  html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">平均文字数: <strong>' + (analysis.avgTextLength || 0) + '字</strong></div></div>';
+
+  // 投稿時間帯
+  html += '<div style="margin-bottom:24px;"><h4 style="margin:0 0 10px;font-size:14px;">🕐 投稿時間帯（JST）</h4>';
+  var hd = analysis.hourDistribution || {};
+  var maxH = 0;
+  for (var h = 0; h < 24; h++) { if ((hd[h] || 0) > maxH) maxH = hd[h]; }
+  html += '<div style="display:flex;align-items:flex-end;gap:2px;height:80px;">';
+  for (var h2 = 0; h2 < 24; h2++) {
+    var hVal = hd[h2] || 0, hPct = maxH > 0 ? Math.round((hVal / maxH) * 100) : 0;
+    var barColor = hVal === maxH && maxH > 0 ? '#e74c3c' : (hPct >= 60 ? '#f39c12' : '#667eea');
+    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;" title="' + h2 + '時: ' + hVal + '件">';
+    html += '<div style="width:100%;background:' + barColor + ';border-radius:2px 2px 0 0;min-height:2px;height:' + Math.max(hPct, 3) + '%;opacity:' + (hVal > 0 ? '1' : '0.2') + ';"></div></div>';
+  }
+  html += '</div>';
+  html += '<div style="display:flex;gap:2px;margin-top:2px;">';
+  for (var h3 = 0; h3 < 24; h3++) html += '<div style="flex:1;text-align:center;font-size:8px;color:var(--text-secondary);">' + (h3 % 3 === 0 ? h3 : '') + '</div>';
+  html += '</div>';
+  if (maxH > 0) {
+    var peaks = [];
+    for (var h4 = 0; h4 < 24; h4++) { if ((hd[h4] || 0) === maxH) peaks.push(h4 + '時'); }
+    html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">ピーク: <strong style="color:var(--text-primary);">' + peaks.join('、') + '</strong>（' + maxH + '件）</div>';
+  }
+  html += '</div>';
+
+  // トップ投稿者
+  var ta = analysis.topAuthors || [];
+  if (ta.length > 0) {
+    html += '<div style="margin-bottom:24px;"><h4 style="margin:0 0 10px;font-size:14px;">👤 よく投稿しているユーザー</h4>';
+    for (var a = 0; a < ta.length; a++) {
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">';
+      html += '<span style="font-size:12px;min-width:20px;color:var(--text-secondary);">' + (a + 1) + '.</span>';
+      html += '<span style="font-size:13px;font-weight:600;">@' + this.escapeHtml(ta[a].username) + '</span>';
+      html += '<span class="text-caption">' + ta[a].count + '件</span></div>';
+    }
+    html += '</div>';
+  }
+
+  // 返信・引用率
+  html += '<div><h4 style="margin:0 0 10px;font-size:14px;">💬 投稿タイプの傾向</h4>';
+  html += '<div style="display:flex;gap:16px;font-size:13px;">';
+  html += '<div>返信率: <strong>' + (analysis.replyRate || 0) + '%</strong></div>';
+  html += '<div>引用率: <strong>' + (analysis.quoteRate || 0) + '%</strong></div></div></div>';
+  return html;
+};
+
+// ============================================
+// Geminiフォールバック結果表示
+// ============================================
+App.kwRenderGeminiFallback_ = function(data, keyword) {
+  var resultsDiv = document.getElementById('kw-results');
+  if (!resultsDiv) return;
+  var myPosts = data.myPosts || [], analysis = data.analysis || '';
+  var html = '';
+
+  html += '<div class="card" style="background:var(--warning-bg);border-left:4px solid var(--warning-color);">';
+  html += '<div style="display:flex;align-items:flex-start;gap:10px;">';
+  html += '<span style="font-size:24px;">🤖</span><div>';
+  html += '<div style="font-weight:700;font-size:14px;">AI分析モードで実行しました</div>';
+  html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Threads APIが一時利用不可のため、Gemini AIがあなたの投稿データを基に分析しました</div>';
+  if (data.apiError) html += '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;opacity:0.7;">API応答: ' + this.escapeHtml(data.apiError) + '</div>';
+  html += '</div></div></div>';
+
+  if (analysis) {
+    html += '<div class="card"><h3 style="margin:0 0 12px;">📊 「' + this.escapeHtml(keyword) + '」のAI分析</h3>';
+    html += '<div style="line-height:1.8;font-size:14px;">' + this.formatMarkdown_(analysis) + '</div></div>';
+  }
+
+  if (myPosts.length > 0) {
+    html += '<div class="card"><h3 style="margin:0 0 8px;">📝 あなたの関連投稿 (' + myPosts.length + '件)</h3>';
+    html += '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">エンゲージメント率順で表示</div>';
+    for (var i = 0; i < myPosts.length; i++) html += this.kwMyPostCard_(myPosts[i]);
+    html += '</div>';
+  } else {
+    html += '<div class="card" style="text-align:center;padding:24px;"><div class="text-caption">';
+    html += '「' + this.escapeHtml(keyword) + '」に関連するあなたの投稿はまだありません。</div></div>';
+  }
+
+  resultsDiv.innerHTML = html;
+  this.kwBindCopyEvents_();
+};
+
+// ============================================
+// AIトレンド分析
+// ============================================
+App.kwRunAIAnalysis = function() {
+  var aiDiv = document.getElementById('kw-ai-result');
+  var aiBtn = document.getElementById('kw-ai-btn');
+  if (!aiDiv) return;
+  var last = this.state.kwLastResult;
+  if (!last || !last.keyword) { this.showToast('検索を先に実行してください', 'error'); return; }
+  if (aiBtn) { aiBtn.disabled = true; aiBtn.textContent = '🤖 分析中…'; }
+  aiDiv.innerHTML = '<div style="text-align:center;padding:20px;"><div class="loading-spinner" style="margin:0 auto 8px;"></div><div style="color:var(--text-secondary);font-size:13px;">AIが分析中…</div></div>';
+  var self = this;
+  this.api('analyzeKeywordTrend', { keyword: last.keyword }).then(function(data) {
+    aiDiv.innerHTML = '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border-color);"><h4 style="margin:0 0 12px;">🤖 AIトレンド分析結果</h4><div style="line-height:1.8;font-size:14px;">' + self.formatMarkdown_(data.analysis) + '</div></div>';
+    if (aiBtn) { aiBtn.disabled = false; aiBtn.textContent = '🤖 AIトレンド分析'; }
+  }).catch(function(err) {
+    aiDiv.innerHTML = '<div style="text-align:center;padding:12px;color:#e74c3c;">⚠️ ' + self.escapeHtml(err.message) + '</div>';
+    if (aiBtn) { aiBtn.disabled = false; aiBtn.textContent = '🤖 AIトレンド分析'; }
+  });
+};
+
+// ============================================
+// カード描画ヘルパー
+// ============================================
+App.kwPostCard_ = function(post, index) {
+  var text = post.text || '';
+  var displayText = text.length > 250 ? text.substring(0, 250) + '…' : text;
+  var typeIcons = { TEXT: '📝', IMAGE: '🖼️', VIDEO: '🎬', CAROUSEL_ALBUM: '📸' };
+
+  var html = '<div style="border:1px solid var(--border-color);border-radius:10px;padding:12px;margin-bottom:8px;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+  html += '<div style="display:flex;align-items:center;gap:6px;">';
+  if (index) html += '<span style="font-size:11px;color:var(--text-secondary);min-width:20px;">' + index + '.</span>';
+  html += '<span style="font-weight:700;font-size:13px;">@' + this.escapeHtml(post.username || 'unknown') + '</span></div>';
+  html += '<span style="font-size:11px;color:var(--text-secondary);">' + this.kwTime_(post.timestamp) + '</span></div>';
+  html += '<div style="font-size:13px;line-height:1.6;margin-bottom:8px;word-break:break-word;">' + this.escapeHtml(displayText) + '</div>';
+  html += '<div style="display:flex;gap:8px;font-size:11px;color:var(--text-secondary);margin-bottom:8px;flex-wrap:wrap;">';
+  html += '<span>' + (typeIcons[post.mediaType] || '📝') + ' ' + (post.mediaType || 'TEXT') + '</span>';
+  if (post.hasReplies) html += '<span>💬 返信あり</span>';
+  if (post.isQuotePost) html += '<span>🔖 引用</span>';
+  if (post.isReply) html += '<span>↩️ 返信</span>';
+  if (post.topicTag) html += '<span>🏷️ ' + this.escapeHtml(post.topicTag) + '</span>';
+  html += '</div>';
+  html += '<div class="btn-group">';
+  if (text) html += '<button data-kw-copy="' + this.escapeAttr(text) + '" style="font-size:11px;padding:4px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;cursor:pointer;color:var(--text-primary);">📋 コピー</button>';
+  if (post.permalink) html += '<a href="' + this.escapeAttr(post.permalink) + '" target="_blank" rel="noopener" style="font-size:11px;padding:4px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;text-decoration:none;color:var(--text-primary);">🔗 開く</a>';
+  html += '</div></div>';
+  return html;
+};
+
+App.kwMyPostCard_ = function(post) {
+  var text = post.text || '';
+  var displayText = text.length > 200 ? text.substring(0, 200) + '…' : text;
+  var erColor = (post.engagementRate || 0) >= 5 ? '#27ae60' : ((post.engagementRate || 0) >= 2 ? '#f39c12' : 'var(--text-secondary)');
+
+  var html = '<div style="border:1px solid var(--border-color);border-radius:10px;padding:12px;margin-bottom:8px;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+  html += '<span class="text-caption">' + this.kwTime_(post.timestamp) + '</span>';
+  html += '<span style="font-size:12px;font-weight:bold;color:' + erColor + ';">ER: ' + (post.engagementRate || 0).toFixed(1) + '%</span></div>';
+  html += '<div style="font-size:13px;line-height:1.6;margin-bottom:8px;word-break:break-word;">' + this.escapeHtml(displayText) + '</div>';
+  html += '<div style="display:flex;gap:12px;font-size:12px;color:var(--text-secondary);margin-bottom:8px;flex-wrap:wrap;">';
+  if (post.views !== undefined) html += '<span>👁️ ' + (post.views || 0).toLocaleString() + '</span>';
+  if (post.likes !== undefined) html += '<span>❤️ ' + (post.likes || 0).toLocaleString() + '</span>';
+  if (post.replies !== undefined) html += '<span>💬 ' + (post.replies || 0).toLocaleString() + '</span>';
+  if (post.reposts !== undefined) html += '<span>🔄 ' + (post.reposts || 0).toLocaleString() + '</span>';
+  html += '</div>';
+  html += '<div class="btn-group">';
+  if (text) html += '<button data-kw-copy="' + this.escapeAttr(text) + '" style="font-size:11px;padding:4px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;cursor:pointer;color:var(--text-primary);">📋 コピー</button>';
+  if (post.permalink) html += '<a href="' + this.escapeAttr(post.permalink) + '" target="_blank" rel="noopener" style="font-size:11px;padding:4px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;text-decoration:none;color:var(--text-primary);">🔗 開く</a>';
+  html += '</div></div>';
+  return html;
+};
+
+// ============================================
+// ユーティリティ
+// ============================================
+App.kwMarkdown_ = function(text) {
+  return this.formatMarkdown_(text);
+};
+
+App.kwInline_ = function(text) {
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  text = text.replace(/`([^`]+)`/g, '<code style="background:var(--bg-tertiary);padding:1px 5px;border-radius:3px;font-size:13px;">$1</code>');
+  return text;
+};
+
+App.kwTime_ = function(ts) {
+  if (!ts) return '';
+  try {
+    var d = new Date(ts), diff = Date.now() - d.getTime();
+    if (diff < 60000) return 'たった今';
+    if (diff < 3600000) return Math.floor(diff / 60000) + '分前';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + '時間前';
+    if (diff < 604800000) return Math.floor(diff / 86400000) + '日前';
+    return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate();
+  } catch (e) { return String(ts); }
+};
+</script>

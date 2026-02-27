@@ -1,0 +1,176 @@
+<script>
+var App = {
+  state: {
+    sheetId: null,
+    user: null,
+    settings: {},
+    currentScreen: 'dashboard',
+    accounts: [],
+    activeAccount: null,
+    tokenWarnings: [],
+    analyticsData: null,
+    sessionToken: '',
+    timeAnalysis: null,
+    userInsights: null,
+    drafts: [],
+    generatedPosts: [],
+    // ★FIX: competitorData 削除
+    currentDraftFilter: '',
+    analyticsTab: 'posts',
+    createTab: 'ai'
+  },
+  init: async function() {
+    this.state.sessionToken = (window.SERVER_DATA && window.SERVER_DATA.sessionToken) || this.state.sessionToken;
+    if (typeof SERVER_DATA !== 'undefined' && SERVER_DATA.sheetId) {
+      this.state.sessionToken = SERVER_DATA.sessionToken || this.state.sessionToken;
+      this.state.sheetId = SERVER_DATA.sheetId;
+      this.state.settings = SERVER_DATA.settings || {};
+      this.state.user = SERVER_DATA.user || null;
+      this.state.accounts = SERVER_DATA.accounts || [];
+      this.state.activeAccount = SERVER_DATA.activeAccount || null;
+      this.state.tokenWarnings = SERVER_DATA.tokenWarnings || [];
+      localStorage.setItem('threads_tool_sheet_id', SERVER_DATA.sheetId);
+      if (window.endSplash) window.endSplash();
+      var initial = SERVER_DATA.initialScreen || 'settings';
+      if (['welcome','setup','setup-auth','setup-gemini'].indexOf(initial) !== -1) initial = 'settings';
+      this.showScreen(initial);
+      return;
+    }
+    var savedId = localStorage.getItem('threads_tool_sheet_id');
+    if (savedId) {
+      this.state.sheetId = savedId;
+      try {
+        var settings = await this.api('getSettings', {});
+        this.state.settings = settings;
+        if (settings && settings.hasAccessToken) {
+          var user = await this.api('getUserProfile', {});
+          this.state.user = user.user || user;
+          await this.loadAccounts();
+          if (window.endSplash) window.endSplash();
+          var postAuth = sessionStorage.getItem('postAuthRedirect');
+          if (postAuth === 'settings') {
+            sessionStorage.removeItem('postAuthRedirect');
+            this.showScreen('settings');
+          } else {
+            this.showScreen('dashboard');
+          }
+          return;
+        } else {
+          if (window.endSplash) window.endSplash();
+          this.showScreen('settings'); return;
+        }
+      } catch (e) { console.log('init error:', e.message); }
+    }
+    if (window.endSplash) window.endSplash();
+    this.showScreen('settings');
+  },
+  api: function(action, params) {
+    var self = this;
+    params = params || {};
+    params.action = action;
+    params.sheetId = this.state.sheetId;
+    var sessionToken = this.state.sessionToken || (window.SERVER_DATA && window.SERVER_DATA.sessionToken);
+    if (sessionToken) params.sessionToken = sessionToken;
+    return new Promise(function(resolve, reject) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result) reject(new Error('サーバー応答なし'));
+          else if (result.success) resolve(result.data);
+          else reject(new Error(result.error || '不明なエラー'));
+        })
+        .withFailureHandler(function(error) { reject(error); })
+        .processApiRequest(params);
+    });
+  },
+  loadAccounts: async function() {
+    try {
+      this.state.accounts = await this.api('getAccounts', {}) || [];
+      this.state.activeAccount = await this.api('getActiveAccount', {}) || null;
+    } catch (e) { this.state.accounts = []; this.state.activeAccount = null; }
+  },
+  switchAccount: async function(accountId) {
+    try {
+      this.showToast('切り替え中…');
+      var data = await this.api('switchAccount', { accountId: accountId });
+      this.state.accounts = data.accounts || [];
+      this.state.user = data.user || {};
+      this.state.activeAccount = null;
+      for (var i = 0; i < this.state.accounts.length; i++) {
+        if (this.state.accounts[i].accountId === accountId) {
+          this.state.activeAccount = this.state.accounts[i];
+          break;
+        }
+      }
+      this.showToast('アカウントを切り替えました', 'success');
+      this.showScreen(this.state.currentScreen);
+    } catch (e) {
+      this.showToast('切り替えエラー: ' + e.message, 'error');
+    }
+  },
+  deleteAccount: async function(accountId) {
+    var acc = this.state.accounts.find(function(a) { return a.accountId === accountId; });
+    if (!confirm('@' + (acc ? acc.username : accountId) + ' を削除しますか？')) return;
+    try {
+      await this.api('removeAccount', { accountId: accountId });
+      await this.loadAccounts();
+      var user = await this.api('getUserProfile', {});
+      this.state.user = user.user || user;
+      this.showToast('削除しました', 'success');
+      this.showScreen('settings');
+    } catch (e) { this.showToast('削除エラー: ' + e.message, 'error'); }
+  },
+  showScreen: function(screen) {
+    if (['dashboard', 'analytics', 'create'].indexOf(screen) !== -1 &&
+        this.isSetupComplete_ && !this.isSetupComplete_()) {
+      this.showToast(' 先に設定を完了してください', 'warning');
+      if (this.refreshNavLock_) this.refreshNavLock_();
+      return;
+    }
+    this.state.currentScreen = screen;
+    var app = document.getElementById('app');
+    var valid = ['dashboard', 'analytics', 'create', 'settings'];
+    if (!this.shellRendered_) {
+      app.innerHTML = this.renderShell(screen);
+      this.shellRendered_ = true;
+      this.bindNavEvents();
+    }
+
+    var contentEl = document.getElementById('content');
+    if (contentEl) {
+      contentEl.innerHTML = this.renderScreenContent(screen);
+      contentEl.classList.add('screen-animate');
+      var onAnimEnd = function() {
+        contentEl.classList.remove('screen-animate');
+        contentEl.removeEventListener('animationend', onAnimEnd);
+      };
+      contentEl.addEventListener('animationend', onAnimEnd);
+    }
+
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+      item.classList.toggle('active', item.getAttribute('data-screen') === screen);
+    });
+    if (this.refreshNavLock_) this.refreshNavLock_();
+
+    switch (screen) {
+      case 'dashboard':
+        this.loadDashboard();
+        break;
+      case 'analytics':
+        this.loadAnalytics();
+        break;
+      case 'create':
+        this.loadCreate();
+        break;
+      case 'settings':
+        this.bindSettingsEvents();
+        break;
+      default:
+        if (contentEl) contentEl.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
+    }
+
+    if (valid.indexOf(screen) !== -1) {
+      this.bindTipsEvents();
+    }
+  }
+};
+</script>

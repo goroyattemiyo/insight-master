@@ -1,0 +1,339 @@
+<script>
+// settings screen templates and logic
+
+
+App.renderSettingsContent = function() {
+    var sheetId = this.state.sheetId || '';
+    var user = this.state.user || {};
+    var sheetUrl = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/edit';
+    var appUrl = window.APP_CONFIG.deploymentUrl || '';
+    var accounts = this.state.accounts || [];
+    var activeAccount = this.state.activeAccount;
+
+    var accountsListHtml = '';
+    if (accounts.length > 0) {
+      accounts.forEach(function(acc) {
+        var isActive = activeAccount && acc.accountId === activeAccount.accountId;
+        accountsListHtml += '<div class="account-list-item' + (isActive ? ' active' : '') + '" data-account-id="' + acc.accountId + '">' +
+          '<div class="account-list-info">' +
+            (acc.profilePicUrl ? '<img src="' + acc.profilePicUrl + '" class="account-list-pic">' : '<div class="account-list-pic-placeholder"></div>') +
+            '<div class="account-list-details">' +
+              '<div class="account-list-name">@' + (acc.username || acc.accountId) + '</div>' +
+              '<div class="account-list-id">' + acc.userId + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="account-list-actions">' +
+            (isActive ? '<span class="account-active-badge">Active</span>' : '<button class="btn btn-small btn-secondary account-switch-btn" data-account-id="' + acc.accountId + '">Switch</button>') +
+            (accounts.length > 1 && !isActive ? '<button class="btn btn-small btn-danger account-delete-btn" data-account-id="' + acc.accountId + '">Delete</button>' : '') +
+          '</div>' +
+        '</div>';
+      });
+    } else {
+      accountsListHtml = '<div class="empty-state" style="padding:20px;">' +
+        '<div style="font-size:14px;color:#666;">No accounts</div>' +
+      '</div>';
+    }
+
+    return '<div class="settings-section">' +
+
+      // Setup Guide
+      '<div class="card" style="background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);border:1px solid #bae6fd;margin-bottom:16px;">' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">' +
+          '<img src="https://files.catbox.moe/6wjxg6.webp" style="width:40px;height:40px;border-radius:10px;">' +
+          '<div>' +
+            '<div style="font-weight:700;font-size:16px;color:#0c4a6e;">AutoPostTool Setup Guide</div>' +
+            '<div style="font-size:12px;color:#0369a1;">Follow the steps below to get started</div>' +
+          '</div>' +
+        '</div>' +
+        '<div id="setupGuide">' +
+          '<div class="guide-step" style="margin-bottom:16px;padding:12px;background:#fff;border-radius:8px;">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+              '<div style="width:28px;height:28px;border-radius:50%;background:#0ea5e9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">1</div>' +
+              '<div style="font-weight:600;color:#0c4a6e;">Spreadsheet Setup</div>' +
+            '</div>' +
+            '<div style="font-size:13px;color:#475569;line-height:1.6;">' +
+              'Copy the template spreadsheet to your Google Drive. Then set the spreadsheet URL in the settings below.' +
+            '</div>' +
+          '</div>' +
+          '<div class="guide-step" style="margin-bottom:16px;padding:12px;background:#fff;border-radius:8px;">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+              '<div style="width:28px;height:28px;border-radius:50%;background:#0ea5e9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">2</div>' +
+              '<div style="font-weight:600;color:#0c4a6e;">Meta Developer App</div>' +
+            '</div>' +
+            '<div style="font-size:13px;color:#475569;line-height:1.6;">' +
+              'Create an app at <a href="https://developers.facebook.com/" target="_blank" style="color:#0ea5e9;">Meta for Developers</a> and add Threads API permissions. Enter the App ID and App Secret below.' +
+            '</div>' +
+          '</div>' +
+          '<div class="guide-step" style="margin-bottom:16px;padding:12px;background:#fff;border-radius:8px;">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+              '<div style="width:28px;height:28px;border-radius:50%;background:#0ea5e9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">3</div>' +
+              '<div style="font-weight:600;color:#0c4a6e;">Redirect URI</div>' +
+            '</div>' +
+            '<div style="font-size:13px;color:#475569;line-height:1.6;">' +
+              'Add this URL as a redirect URI in your Meta Developer app settings:<br>' +
+              '<code id="guideRedirectUri" style="display:block;margin-top:6px;padding:8px;background:#f1f5f9;border-radius:4px;font-size:12px;word-break:break-all;color:#334155;">(Shown in App URL below)</code>' +
+              '<div style="margin-top:6px;font-size:12px;color:#dc2626;">* Trailing slash must match exactly</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="guide-step" style="margin-bottom:16px;padding:12px;background:#fff;border-radius:8px;">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+              '<div style="width:28px;height:28px;border-radius:50%;background:#0ea5e9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">4</div>' +
+              '<div style="font-weight:600;color:#0c4a6e;">Authenticate</div>' +
+            '</div>' +
+            '<div style="font-size:13px;color:#475569;line-height:1.6;">' +
+              'Once all settings are complete, press the Authenticate button. You will be redirected to the compose screen after success.' +
+            '</div>' +
+          '</div>' +
+          (this.state.user ?
+            '<div style="padding:12px;background:#dcfce7;border-radius:8px;text-align:center;">' +
+              '<div style="font-size:20px;margin-bottom:4px;">&#x2705;</div>' +
+              '<div style="font-weight:600;color:#166534;">Setup Complete!</div>' +
+              '<div style="font-size:13px;color:#15803d;margin-top:4px;">You can now start posting to Threads.</div>' +
+              '<button onclick="App.showScreen(\'compose\')" class="btn btn-primary" style="margin-top:12px;">Go to Compose</button>' +
+            '</div>'
+          : '') +
+        '</div>' +
+      '</div>' +
+
+      // Account Management
+      '<div class="card">' +
+        '<div class="card-title">Account Management</div>' +
+        '<div class="account-list">' +
+          accountsListHtml +
+        '</div>' +
+        '<button id="importAccountBtn" class="btn btn-secondary btn-full" style="margin-top:8px;">&#x1F4E5; Import from another spreadsheet</button>' +
+      '</div>' +
+
+      // Current Account
+      '<div class="card">' +
+        '<div class="card-title">Current Account</div>' +
+        '<div class="settings-item">' +
+          '<span class="settings-item-label">Username</span>' +
+          '<span class="settings-item-value">@' + (user.username || 'Not connected') + '</span>' +
+        '</div>' +
+      '</div>' +
+
+      // Connection Info
+      '<div class="card">' +
+        '<div class="card-title">Connection Info</div>' +
+        '<div style="margin-bottom:16px;">' +
+          '<div style="font-size:12px;color:#666;margin-bottom:4px;">Spreadsheet URL</div>' +
+          '<div style="display:flex;gap:8px;">' +
+            '<input type="text" id="sheetUrlCopy" class="input" value="' + sheetUrl + '" readonly style="font-size:11px;">' +
+            '<button id="copySheetUrlBtn" class="btn btn-secondary btn-small">Copy</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:16px;">' +
+          '<div style="font-size:12px;color:#666;margin-bottom:4px;">App URL</div>' +
+          '<div style="display:flex;gap:8px;">' +
+            '<input type="text" id="appUrlCopy" class="input" value="' + appUrl + '" readonly style="font-size:11px;">' +
+            '<button id="copyAppUrlBtn" class="btn btn-secondary btn-small">Copy</button>' +
+          '</div>' +
+        '</div>' +
+        '<a href="' + sheetUrl + '" target="_blank" class="btn btn-secondary btn-full" style="text-decoration:none;">Open Spreadsheet</a>' +
+      '</div>' +
+
+      // Multi-device tip
+      '<div class="card" style="background:#f0f9ff;">' +
+        '<div style="font-size:14px;">' +
+          '<strong>&#x1F4A1; Use on another device</strong><br><br>' +
+          'Copy the Spreadsheet URL above, then<br>' +
+          'open this app on another phone/PC and paste it into "I already have a spreadsheet".' +
+        '</div>' +
+      '</div>' +
+
+      // Actions
+      '<div class="card">' +
+        '<div class="card-title">Actions</div>' +
+        '<button id="reauthBtn" class="btn btn-secondary btn-full">Re-authenticate current account</button>' +
+        '<button id="disconnectBtn" class="btn btn-danger btn-full" style="margin-top:12px;">Disconnect</button>' +
+      '</div>' +
+
+      // Top
+      '<div class="card">' +
+        '<div class="card-title">Navigation</div>' +
+        '<button id="goToTopBtn" class="btn btn-secondary btn-full">&#x1F3E0; Back to Top</button>' +
+      '</div>' +
+
+      // Navigation for authenticated users
+      (this.state.user ?
+        '<div class="card" style="margin-top:16px;">' +
+          '<div class="card-title">Quick Navigation</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+            '<button onclick="App.showScreen(\'compose\')" class="btn btn-primary">&#x1F4DD; Compose</button>' +
+            '<button onclick="App.showScreen(\'schedule\')" class="btn btn-secondary">&#x23F0; Schedule</button>' +
+            '<button onclick="App.showScreen(\'history\')" class="btn btn-secondary">&#x1F4CB; History</button>' +
+            '<button onclick="App.showScreen(\'analytics\')" class="btn btn-secondary">&#x1F4CA; Analytics</button>' +
+          '</div>' +
+        '</div>'
+      : '') +
+    '</div>';
+  };
+
+App.bindSettingsEvents = function() {
+    var self = this;
+
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        var screen = this.getAttribute('data-screen');
+        self.showScreen(screen);
+      });
+    });
+
+    this.bindAccountSwitcherEvents();
+
+    document.querySelectorAll('.account-switch-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var accountId = this.getAttribute('data-account-id');
+        self.switchAccount(accountId);
+      });
+    });
+
+    document.querySelectorAll('.account-delete-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var accountId = this.getAttribute('data-account-id');
+        self.deleteAccount(accountId);
+      });
+    });
+
+    var importAccountBtn = document.getElementById('importAccountBtn');
+    if (importAccountBtn) {
+      importAccountBtn.addEventListener('click', function() {
+        self.showImportAccountModal();
+      });
+    }
+
+    var copySheetUrlBtn = document.getElementById('copySheetUrlBtn');
+    if (copySheetUrlBtn) {
+      copySheetUrlBtn.addEventListener('click', function() {
+        var input = document.getElementById('sheetUrlCopy');
+        navigator.clipboard.writeText(input.value).then(function() {
+          copySheetUrlBtn.textContent = '&#x2705;';
+          setTimeout(function() { copySheetUrlBtn.textContent = 'Copy'; }, 2000);
+        });
+      });
+    }
+
+    var copyAppUrlBtn = document.getElementById('copyAppUrlBtn');
+    if (copyAppUrlBtn) {
+      copyAppUrlBtn.addEventListener('click', function() {
+        var input = document.getElementById('appUrlCopy');
+        navigator.clipboard.writeText(input.value).then(function() {
+          copyAppUrlBtn.textContent = '&#x2705;';
+          setTimeout(function() { copyAppUrlBtn.textContent = 'Copy'; }, 2000);
+        });
+      });
+    }
+
+    var reauthBtn = document.getElementById('reauthBtn');
+    if (reauthBtn) {
+      reauthBtn.addEventListener('click', function() {
+        self.showScreen('setup-auth');
+      });
+    }
+
+    var disconnectBtn = document.getElementById('disconnectBtn');
+    if (disconnectBtn) {
+      disconnectBtn.addEventListener('click', function() {
+        if (confirm('Disconnect? Your settings will remain in the spreadsheet.')) {
+          localStorage.removeItem('threads_tool_sheet_id');
+          localStorage.removeItem('threads_tool_folder_url');
+          localStorage.removeItem('threads_setup_checklist');
+          self.state = {
+            sheetId: null,
+            user: null,
+            settings: {},
+            posts: [],
+            history: [],
+            currentScreen: 'connect',
+            accounts: [],
+            activeAccount: null,
+            showAllAccounts: false
+          };
+          self.showScreen('connect');
+          self.showToast('Disconnected', 'success');
+        }
+      });
+    }
+
+    var goToTopBtn = document.getElementById('goToTopBtn');
+    if (goToTopBtn) {
+      goToTopBtn.addEventListener('click', function() {
+        self.showScreen('welcome');
+      });
+    }
+
+    var guideUri = document.getElementById('guideRedirectUri');
+    var guideAppUrl = window.APP_CONFIG ? window.APP_CONFIG.deploymentUrl : '';
+    if (guideUri && guideAppUrl) {
+      guideUri.textContent = guideAppUrl;
+      guideUri.style.cursor = 'pointer';
+      guideUri.title = 'Click to copy';
+      guideUri.addEventListener('click', function() {
+        App.copyToClipboard(guideAppUrl);
+        App.showToast('Redirect URI copied', 'success');
+      });
+    }
+  };
+
+App.loadAccounts = async function() {
+    try {
+      var accounts = await this.api('getAccounts', {});
+      this.state.accounts = accounts || [];
+
+      var activeAccount = await this.api('getActiveAccount', {});
+      this.state.activeAccount = activeAccount;
+
+      console.log('Accounts loaded:', this.state.accounts.length);
+      console.log('Active account:', activeAccount ? activeAccount.username : 'none');
+    } catch (e) {
+      console.error('Account load error:', e.message);
+      this.state.accounts = [];
+      this.state.activeAccount = null;
+    }
+  };
+
+App.switchAccount = async function(accountId) {
+    var self = this;
+
+    try {
+      await this.api('setActiveAccount', { accountId: accountId });
+      await this.loadAccounts();
+
+      var user = await this.api('getUserProfile', {});
+      this.state.user = user.user || user;
+
+      this.showToast('Account switched', 'success');
+      this.showScreen(this.state.currentScreen);
+    } catch (e) {
+      this.showToast('Switch error: ' + e.message, 'error');
+    }
+  };
+
+App.deleteAccount = async function(accountId) {
+    var self = this;
+
+    var account = this.state.accounts.find(function(acc) {
+      return acc.accountId === accountId;
+    });
+    var username = account ? account.username : accountId;
+
+    if (!confirm('Delete @' + username + '?\n\nScheduled posts and history will remain, but you will not be able to post with this account.')) {
+      return;
+    }
+
+    try {
+      await this.api('removeAccount', { accountId: accountId });
+      await this.loadAccounts();
+
+      var user = await this.api('getUserProfile', {});
+      this.state.user = user.user || user;
+
+      this.showToast('Account deleted', 'success');
+      this.showScreen('settings');
+    } catch (e) {
+      this.showToast('Delete error: ' + e.message, 'error');
+    }
+  };
+
+</script>
