@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
@@ -79,7 +79,7 @@
       <div class="splash-dot"></div>
     </div>
   </div>
-  <div id="app" style="display:none;">
+  <div id="app" style="display:none;opacity:0;transition:opacity 0.3s ease;">
     <div class="loading"><div class="loading-spinner"></div><div>読み込み中...</div></div>
   </div>
 <script>
@@ -103,6 +103,7 @@
       setTimeout(function() {
         splash.style.display = 'none';
         app.style.display = 'block';
+        requestAnimationFrame(function() { requestAnimationFrame(function() { app.style.opacity = '1'; }); });
       }, 600);
     }
 
@@ -133,3 +134,4 @@
   <?!= HtmlService.createHtmlOutputFromFile('screen_settings').getContent(); ?>
 </body>
 </html>
+

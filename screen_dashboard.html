@@ -364,7 +364,6 @@ App.dashboardRunAI_ = function(action, loadingText, btn) {
     resultDiv.innerHTML = '<div style="color:var(--error);font-size:13px;padding:12px;">' + self.escapeHtml(err.message || String(err)) + '</div>';
   });
 };
-</script>
 
 // === フォロワー推移グラフ ===
 
@@ -523,3 +522,4 @@ App.bindFollowerChartEvents_ = function() {
     self.exportAsImage('followerCanvas', 'followers_chart');
   });
 };
+</script>
