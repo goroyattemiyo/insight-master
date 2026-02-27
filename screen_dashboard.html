@@ -216,10 +216,10 @@ App.loadDashboardData_ = async function() {
     var key = 'insight_master_last_fetch_' + accountId;
     localStorage.setItem(key, String(Date.now()));
     this.updateLastFetchLabel_();
-  // フォロワー推移グラフを読み込み
+  }
+  // フォロワー推移グラフを読み込み（fetchedOk に関係なく実行）
   this.loadFollowerChart_(7);
   this.bindFollowerChartEvents_();
-  }
 };
 
 App.bindDashboardRefreshButtons_ = function() {
