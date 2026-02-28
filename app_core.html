@@ -90,7 +90,9 @@ var App = {
         .withFailureHandler(function(error) { reject(error); })
         .processApiRequest(params);
     });
+    });
   },
+  clearApiCache: function() { this.apiCache_ = {}; },
   loadAccounts: async function() {
     try {
       this.state.accounts = await this.api('getAccounts', {}) || [];

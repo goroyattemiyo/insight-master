@@ -127,6 +127,7 @@ App.loadDashboard = async function() {
       self.showToast('時間帯分析を生成中...', 'info');
       await self.api('generateTimeAnalysis', {});
       self.showToast('データ更新完了！', 'success');
+      self.clearApiCache();
     } catch (e) { self.showToast('更新エラー: ' + e.message, 'error'); }
     btn.disabled = false;
     var acc = self.state.activeAccount;
@@ -274,7 +275,7 @@ App.maybeAutoRefreshDashboard_ = function() {
       self.api('fetchAndStorePostAnalytics', {}),
       self.api('generateTimeAnalysis', {})
     ]); })
-    .then(function() { return self.loadDashboardData_(); })
+    .then(function() { self.clearApiCache(); return self.loadDashboardData_(); })
     .catch(function() { /* ignore */ })
     .finally(function() {
       if (indicator) indicator.style.display = 'none';
