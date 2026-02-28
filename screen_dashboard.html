@@ -172,6 +172,11 @@ App.loadDashboardData_ = async function() {
   var demoArea = document.getElementById('demographicsArea');
   var sumArea = document.getElementById('summaryArea');
   var fetchedOk = false;
+  var prefetch = window.SERVER_DATA && window.SERVER_DATA.prefetchInsights;
+  if (prefetch && !this.prefetchUsed_) {
+    this.prefetchUsed_ = true;
+    this.apiCache_['fetchUserInsights_""'] = { data: prefetch, ts: Date.now() };
+  }
   var insPromise = this.api('fetchUserInsights', { sinceDays: 7 })
     .then(function(value) { return { ok: true, value: value }; })
     .catch(function(error) { return { ok: false, error: error }; });

@@ -163,6 +163,9 @@ function doGet(e) {
         var tw = checkTokenExpiry(ss);
         initialData.tokenWarnings = Array.isArray(tw) ? tw : [];
         initialData.initialScreen = 'dashboard';
+        try {
+          initialData.prefetchInsights = fetchUserInsights(ss, 7);
+        } catch (e3) { initialData.prefetchInsights = null; }
       } else if (rawSettings && rawSettings.app_id) {
         initialData.initialScreen = 'setup-auth';
       } else {
