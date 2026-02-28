@@ -1,4 +1,4 @@
-// ===========================================
+﻿// ===========================================
 // Code.gs - エントリーポイント・ルーター・グローバル設定
 // ===========================================
 
@@ -274,6 +274,14 @@ function processApiRequest(params) {
       case 'setupWeeklyTrigger':     result = setupWeeklyTrigger(); break;
       // Keyword Search
       case 'searchKeyword':           result = searchKeyword(ss, params); break;
+      // Retention (Growth Score / Check-in / Goals / Email)
+      case 'calculateGrowthScore': result = calculateGrowthScore(ss); break;
+      case 'getGrowthScore':       result = getGrowthScore(ss); break;
+      case 'dailyCheckIn':         result = dailyCheckIn(ss); break;
+      case 'getGoals':             result = getGoals(ss); break;
+      case 'setGoal':              result = setGoal(ss, params); break;
+      case 'deleteGoal':           result = deleteGoal(ss, params); break;
+      case 'setupWeeklySummaryEmail': result = setupWeeklySummaryEmail(); break;
       case 'getSearchHistory':        result = getSearchHistory(ss); break;
       case 'getSavedSearchResults':   result = getSavedSearchResults(ss, params); break;
       case 'analyzeKeywordTrend':     result = analyzeKeywordTrend(ss, params); break;

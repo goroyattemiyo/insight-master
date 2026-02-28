@@ -1,4 +1,4 @@
-<script>
+﻿<script>
 var App = {
   state: {
     sheetId: null,
@@ -415,6 +415,34 @@ App.demoData_ = function(action, params) {
     case 'searchKeyword':
       return { results: [], message: 'デモモードではキーワード検索は利用できません。セットアップ完了後にご利用いただけます。' };
       return [];
+    case 'calculateGrowthScore':
+    case 'getGrowthScore':
+      return { current: 72, previous: 65, change: 7, breakdown: { follower: 18, erTrend: 20, frequency: 17, aiUsage: 17 }, updatedAt: new Date().toISOString() };
+
+    case 'dailyCheckIn':
+      var streakDay = parseInt(sessionStorage.getItem('demo_streak') || '0') + 1;
+      sessionStorage.setItem('demo_streak', String(streakDay));
+      var demoMessages = [
+        '今日は21時台の投稿が狙い目！「AIツール」系のテーマがおすすめ。',
+        '朝7時台の投稿でER 5%超えを狙いましょう！',
+        '水曜日は「まとめ系」投稿がバズりやすい傾向があります。',
+        '質問で終わる投稿は返信率が40%アップします！',
+        'フォロワーとの対話を意識した投稿をしてみましょう。'
+      ];
+      return { streak: streakDay, todayMessage: demoMessages[Math.floor(Math.random() * demoMessages.length)], recommendedTime: '21:00', recommendedTheme: 'AIツール活用術', checkedIn: true, alreadyCheckedIn: false };
+
+    case 'getGoals':
+      return [{ id: 'demo_g1', type: 'follower_increase', label: '今月の目標: フォロワー+100', target: 100, current: 43, percentage: 43, achieved: false, createdAt: '2026-02-01' }];
+
+    case 'setGoal':
+      return { success: true, id: 'demo_g_new', message: '目標を設定しました！（デモ）' };
+
+    case 'deleteGoal':
+      return { success: true, message: '目標を削除しました（デモ）' };
+
+    case 'setupWeeklySummaryEmail':
+      return { success: true, message: 'デモモードではメールトリガーは設定されません' };
+
     case 'getSettings':
       return this.state.settings;
     case 'getUserProfile':
