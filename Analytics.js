@@ -421,7 +421,7 @@ function analyzeBuzzPattern(ss, days) {
 
   // ヘッダーインデックス取得
   var idx = {};
-  var colNames = ['id','timestamp','text','likes','replies','reposts','quotes','views','permalink'];
+  var colNames = ['post_id','timestamp','text','likes','replies','reposts','quotes','views','permalink'];
   colNames.forEach(function(name) {
     for (var i = 0; i < headers.length; i++) {
       if (String(headers[i]).toLowerCase().indexOf(name) >= 0) { idx[name] = i; break; }
@@ -445,7 +445,7 @@ function analyzeBuzzPattern(ss, days) {
     var er = views > 0 ? (engagement / views * 100) : 0;
 
     posts.push({
-      id: row[idx.id] || '',
+      id: row[idx.post_id] || '',
       timestamp: ts,
       text: text,
       likes: likes,
@@ -536,7 +536,7 @@ function generateBuzzReport(ss, days) {
   var analysis = analyzeBuzzPattern(ss, days);
   if (!analysis.stats) return analysis;
 
-  var settings = getSettings_();
+  var settings = getSettings(ss);
   var apiKey = settings.geminiApiKey;
   if (!apiKey) {
     analysis.aiReport = null;
@@ -588,4 +588,7 @@ function generateBuzzReport(ss, days) {
 
   return analysis;
 }
+
+
+
 
