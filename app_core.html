@@ -64,6 +64,7 @@ var App = {
     if (window.endSplash) window.endSplash();
     this.showScreen('settings');
   },
+  apiCache_: {},
   api: function(action, params) {
     var self = this;
     params = params || {};
@@ -72,12 +73,19 @@ var App = {
     var sessionToken = this.state.sessionToken || (window.SERVER_DATA && window.SERVER_DATA.sessionToken);
     if (sessionToken) params.sessionToken = sessionToken;
     if (self.state.demoMode) return self.demoApi_(action, params);
+    var cacheActions = ['getAnalyticsData','getTimeAnalysisData','fetchUserInsights','getFollowerHistory','getWeeklyReportList','getCompetitors','getWatchPosts','getDrafts','getAccounts','getActiveAccount'];
+    var cacheKey = action + '_' + JSON.stringify(params.periodDays || params.days || '');
+    if (cacheActions.indexOf(action) !== -1 && self.apiCache_[cacheKey] && (Date.now() - self.apiCache_[cacheKey].ts < 300000)) {
+      return Promise.resolve(self.apiCache_[cacheKey].data);
+    }
     return new Promise(function(resolve, reject) {
       google.script.run
         .withSuccessHandler(function(result) {
           if (!result) reject(new Error('サーバー応答なし'));
-          else if (result.success) resolve(result.data);
-          else reject(new Error(result.error || '不明なエラー'));
+          else if (result.success) {
+            if (cacheActions.indexOf(action) !== -1) self.apiCache_[cacheKey] = { data: result.data, ts: Date.now() };
+            resolve(result.data);
+          } else reject(new Error(result.error || '不明なエラー'));
         })
         .withFailureHandler(function(error) { reject(error); })
         .processApiRequest(params);
