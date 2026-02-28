@@ -409,7 +409,7 @@ function getTimeAnalysisData(ss) {
 
 function analyzeBuzzPattern(ss, days) {
   days = days || 30;
-  var sheet = ss.getSheetByName('PostAnalytics');
+  var sheet = ss.getSheetByName('分析データ');
   if (!sheet || sheet.getLastRow() < 2) {
     return { error: false, stats: null, topPosts: [], bottomPosts: [], sampleSize: 0, message: '投稿データがありません' };
   }
@@ -588,3 +588,4 @@ function generateBuzzReport(ss, days) {
 
   return analysis;
 }
+
