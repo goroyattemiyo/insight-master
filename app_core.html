@@ -65,8 +65,9 @@ var App = {
     this.showScreen('settings');
   },
   apiCache_: {},
-  api: function(action, params) {
+  api: function(action, params, retryCount) {
     var self = this;
+    retryCount = retryCount || 0;
     params = params || {};
     params.action = action;
     params.sheetId = this.state.sheetId;
@@ -81,18 +82,77 @@ var App = {
     return new Promise(function(resolve, reject) {
       google.script.run
         .withSuccessHandler(function(result) {
-          if (!result) reject(new Error('サーバー応答なし'));
-          else if (result.success) {
+          if (!result) {
+            self.logError_(action, 'EMPTY_RESPONSE', 'サーバー応答なし');
+            reject(new Error('サーバー応答なし'));
+          } else if (result.success) {
             if (cacheActions.indexOf(action) !== -1) self.apiCache_[cacheKey] = { data: result.data, ts: Date.now() };
             resolve(result.data);
-          } else reject(new Error(result.error || '不明なエラー'));
+          } else {
+            var errMsg = result.error || '不明なエラー';
+            var errCode = self.classifyError_(errMsg);
+            self.logError_(action, errCode, errMsg);
+            if (errCode === 'RATE_LIMITED' || errCode === 'NETWORK_ERROR') {
+              if (retryCount < 3) {
+                var delay = Math.pow(2, retryCount) * 1000;
+                setTimeout(function() {
+                  self.api(action, params, retryCount + 1).then(resolve).catch(reject);
+                }, delay);
+                return;
+              }
+            }
+            var userMsg = self.getUserErrorMessage_(errCode, errMsg);
+            reject(new Error(userMsg));
+          }
         })
-        .withFailureHandler(function(error) { reject(error); })
+        .withFailureHandler(function(error) {
+          var errMsg = error.message || String(error);
+          var errCode = self.classifyError_(errMsg);
+          self.logError_(action, errCode, errMsg);
+          if ((errCode === 'NETWORK_ERROR') && retryCount < 3) {
+            var delay = Math.pow(2, retryCount) * 1000;
+            setTimeout(function() {
+              self.api(action, params, retryCount + 1).then(resolve).catch(reject);
+            }, delay);
+            return;
+          }
+          reject(new Error(self.getUserErrorMessage_(errCode, errMsg)));
+        })
         .processApiRequest(params);
     });
   },
   clearApiCache: function() { this.apiCache_ = {}; },
   loadAccounts: async function() {
+  classifyError_: function(msg) {
+    if (!msg) return 'UNKNOWN';
+    msg = msg.toLowerCase();
+    if (msg.indexOf('token') !== -1 || msg.indexOf('認証') !== -1 || msg.indexOf('auth') !== -1 || msg.indexOf('expired') !== -1) return 'AUTH_EXPIRED';
+    if (msg.indexOf('rate') !== -1 || msg.indexOf('limit') !== -1 || msg.indexOf('quota') !== -1 || msg.indexOf('429') !== -1) return 'RATE_LIMITED';
+    if (msg.indexOf('network') !== -1 || msg.indexOf('fetch') !== -1 || msg.indexOf('timeout') !== -1 || msg.indexOf('connection') !== -1) return 'NETWORK_ERROR';
+    if (msg.indexOf('sheet') !== -1 || msg.indexOf('シート') !== -1 || msg.indexOf('not found') !== -1) return 'SHEET_NOT_FOUND';
+    if (msg.indexOf('gemini') !== -1 && (msg.indexOf('key') !== -1 || msg.indexOf('キー') !== -1 || msg.indexOf('未設定') !== -1)) return 'GEMINI_NO_KEY';
+    if (msg.indexOf('gemini') !== -1 && (msg.indexOf('quota') !== -1 || msg.indexOf('超過') !== -1)) return 'GEMINI_QUOTA';
+    return 'UNKNOWN';
+  },
+  getUserErrorMessage_: function(code, raw) {
+    switch (code) {
+      case 'AUTH_EXPIRED': return '認証の有効期限が切れました。設定画面から再認証してください';
+      case 'RATE_LIMITED': return 'APIの利用制限に達しました。数分後に自動リトライします';
+      case 'NETWORK_ERROR': return '通信エラーが発生しました。接続を確認してリトライしてください';
+      case 'SHEET_NOT_FOUND': return 'シートが見つかりません。設定を確認してください';
+      case 'GEMINI_NO_KEY': return 'Gemini APIキーが未設定です。設定画面から追加してください';
+      case 'GEMINI_QUOTA': return 'Gemini API無料枠を超過しました。翌日に再試行するか、有料プランをご検討ください';
+      default: return raw || '予期せぬエラーが発生しました';
+    }
+  },
+  logError_: function(action, code, msg) {
+    try {
+      var logs = JSON.parse(localStorage.getItem('insight_master_error_log') || '[]');
+      logs.unshift({ time: new Date().toISOString(), action: action, code: code, msg: msg });
+      if (logs.length > 50) logs = logs.slice(0, 50);
+      localStorage.setItem('insight_master_error_log', JSON.stringify(logs));
+    } catch (e) { /* ignore */ }
+  },
     try {
       this.state.accounts = await this.api('getAccounts', {}) || [];
       this.state.activeAccount = await this.api('getActiveAccount', {}) || null;
