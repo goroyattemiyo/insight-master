@@ -123,6 +123,11 @@ var App = {
   },
   clearApiCache: function() { this.apiCache_ = {}; },
   loadAccounts: async function() {
+    try {
+      this.state.accounts = await this.api('getAccounts', {}) || [];
+      this.state.activeAccount = await this.api('getActiveAccount', {}) || null;
+    } catch (e) { this.state.accounts = []; this.state.activeAccount = null; }
+  },
   classifyError_: function(msg) {
     if (!msg) return 'UNKNOWN';
     msg = msg.toLowerCase();
@@ -152,11 +157,6 @@ var App = {
       if (logs.length > 50) logs = logs.slice(0, 50);
       localStorage.setItem('insight_master_error_log', JSON.stringify(logs));
     } catch (e) { /* ignore */ }
-  },
-    try {
-      this.state.accounts = await this.api('getAccounts', {}) || [];
-      this.state.activeAccount = await this.api('getActiveAccount', {}) || null;
-    } catch (e) { this.state.accounts = []; this.state.activeAccount = null; }
   },
   switchAccount: async function(accountId) {
     try {
