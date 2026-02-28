@@ -219,6 +219,9 @@ App.showRefineModal_ = function(text, draftId) {
 
   var overlay = document.createElement('div');
   overlay.id = 'refineModal';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'AI編集');
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000;padding:16px;';
 
   overlay.innerHTML =
@@ -478,6 +481,9 @@ App.showAddDraftModal_ = function() {
   var self = this;
   var overlay = document.createElement('div');
   overlay.id = 'draftModal';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', '下書き追加');
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000;padding:20px;';
   overlay.innerHTML = '<div style="background:var(--bg-primary,#fff);border-radius:16px;padding:24px;max-width:450px;width:100%;">' +
     '<div style="font-size:18px;font-weight:bold;margin-bottom:16px;">下書きを追加</div>' +
@@ -515,3 +521,4 @@ App.showAddDraftModal_ = function() {
   });
 };
 </script>
+

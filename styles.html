@@ -628,4 +628,13 @@ a { color: inherit; text-decoration: none; }
 
 .card-relative { position: relative; }
 
+
+/* === Accessibility === */
+*:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.btn:focus-visible { outline: 2px solid var(--primary-dark); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(99,102,241,0.2); }
+.nav-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 8px; }
+.subtab:focus-visible, .input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.accordion-header:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
 </style>
+

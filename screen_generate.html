@@ -7,19 +7,19 @@ App.renderCreateContent = function() {
   var tab = this.state.createTab || 'ai';
   return '<div>' +
     '<div style="padding:16px 16px 0;">' +
-      '<div class="subtabs" data-group="create">' +
-        '<button class="subtab' + (tab === 'ai' ? ' active' : '') + '" data-group="create" data-tab="ai">AI生成</button>' +
-        '<button class="subtab' + (tab === 'search' ? ' active' : '') + '" data-group="create" data-tab="search">検索</button>' +
-        '<button class="subtab' + (tab === 'drafts' ? ' active' : '') + '" data-group="create" data-tab="drafts">下書き</button>' +
+      '<div class="subtabs" data-group="create" role="tablist" aria-label="作成タブ">' +
+        '<button class="subtab' + (tab === 'ai' ? ' active' : '') + '" data-group="create" data-tab="ai" role="tab" aria-controls="create-tab-ai">AI生成</button>' +
+        '<button class="subtab' + (tab === 'search' ? ' active' : '') + '" data-group="create" data-tab="search" role="tab" aria-controls="create-tab-search">検索</button>' +
+        '<button class="subtab' + (tab === 'drafts' ? ' active' : '') + '" data-group="create" data-tab="drafts" role="tab" aria-controls="create-tab-drafts">下書き</button>' +
       '</div>' +
     '</div>' +
     '<div class="subtab-panels">' +
-      '<div id="create-tab-ai" class="subtab-panel' + (tab === 'ai' ? ' active' : '') + '">' +
+      '<div id="create-tab-ai" role="tabpanel" class="subtab-panel' + (tab === 'ai' ? ' active' : '') + '">' +
         this.renderGenerateContent() +
       '</div>' +
-      '<div id="create-tab-search" class="subtab-panel' + (tab === 'search' ? ' active' : '') + '">' +
+      '<div id="create-tab-search" role="tabpanel" class="subtab-panel' + (tab === 'search' ? ' active' : '') + '">' +
       '</div>' +
-      '<div id="create-tab-drafts" class="subtab-panel' + (tab === 'drafts' ? ' active' : '') + '">' +
+      '<div id="create-tab-drafts" role="tabpanel" class="subtab-panel' + (tab === 'drafts' ? ' active' : '') + '">' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -99,9 +99,9 @@ App.renderGenerateContent = function() {
         '<input type="text" id="aiThemeInput" class="input" placeholder="例: 朝活のメリット、AI時代の働き方" value="' + this.escapeAttr(savedTheme) + '"></div>' +
       '<div class="mb-16"><label class="form-label">生成モード</label>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-          '<button class="btn btn-small gen-mode-btn' + (savedMode === 'normal' ? ' active' : '') + '" data-mode="normal">📝 通常</button>' +
-          '<button class="btn btn-small gen-mode-btn' + (savedMode === 'thread' ? ' active' : '') + '" data-mode="thread">🧵 ツリー</button>' +
-          '<button class="btn btn-small gen-mode-btn' + (savedMode === 'analysis-based' ? ' active' : '') + '" data-mode="analysis-based">📊 分析ベース</button></div>' +
+          '<button class="btn btn-small gen-mode-btn' + (savedMode === 'normal' ? ' active' : '') + '" data-mode="normal" role="radio" aria-checked="true">📝 通常</button>' +
+          '<button class="btn btn-small gen-mode-btn' + (savedMode === 'thread' ? ' active' : '') + '" data-mode="thread" role="radio" aria-checked="false">🧵 ツリー</button>' +
+          '<button class="btn btn-small gen-mode-btn' + (savedMode === 'analysis-based' ? ' active' : '') + '" data-mode="analysis-based" role="radio" aria-checked="false">📊 分析ベース</button></div>' +
         '<p class="form-label-small mt-8" id="modeDesc">テーマに沿った3〜5パターンの投稿文を生成</p></div>' +
       '<div id="analysisPreview" style="display:none;"></div>' +
       '<button id="generateBtn" class="btn btn-primary btn-full" ' + (hasKey ? '' : 'disabled') + '>✨ 生成する</button>' +
@@ -346,3 +346,4 @@ App.renderGenerateResults_ = function(result) {
   });
 };
 </script>
+

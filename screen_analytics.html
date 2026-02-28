@@ -5,18 +5,18 @@
 App.renderAnalyticsContent = function() {
   var tab = this.state.analyticsTab || 'posts';
   return '<div class="screen-content">' +
-    '<div class="subtabs" data-group="analytics">' +
-      '<button class="subtab' + (tab === 'posts' ? ' active' : '') + '" data-group="analytics" data-tab="posts">投稿分析</button>' +
-      '<button class="subtab' + (tab === 'time' ? ' active' : '') + '" data-group="analytics" data-tab="time">時間帯</button>' +
-      '<button class="subtab' + (tab === 'competitor' ? ' active' : '') + '" data-group="analytics" data-tab="competitor">競合</button>' +
+    '<div class="subtabs" data-group="analytics" role="tablist" aria-label="分析タブ">' +
+      '<button class="subtab' + (tab === 'posts' ? ' active' : '') + '" data-group="analytics" data-tab="posts" role="tab" aria-controls="analytics-tab-posts" role="tab" aria-controls="analytics-tab-posts">投稿分析</button>' +
+      '<button class="subtab' + (tab === 'time' ? ' active' : '') + '" data-group="analytics" data-tab="time" role="tab" aria-controls="analytics-tab-time" role="tab" aria-controls="analytics-tab-time">時間帯</button>' +
+      '<button class="subtab' + (tab === 'competitor' ? ' active' : '') + '" data-group="analytics" data-tab="competitor" role="tab" aria-controls="analytics-tab-competitor" role="tab" aria-controls="analytics-tab-competitor">競合</button>' +
     '</div>' +
     '<div class="subtab-panels">' +
-      '<div id="analytics-tab-posts" class="subtab-panel' + (tab === 'posts' ? ' active' : '') + '">' +
+      '<div id="analytics-tab-posts" role="tabpanel" class="subtab-panel' + (tab === 'posts' ? ' active' : '') + '">' +
         this.renderAnalyticsDetailContent() +
       '</div>' +
-      '<div id="analytics-tab-time" class="subtab-panel' + (tab === 'time' ? ' active' : '') + '">' +
+      '<div id="analytics-tab-time" role="tabpanel" class="subtab-panel' + (tab === 'time' ? ' active' : '') + '">' +
       '</div>' +
-      '<div id="analytics-tab-competitor" class="subtab-panel' + (tab === 'competitor' ? ' active' : '') + '">' +
+      '<div id="analytics-tab-competitor" role="tabpanel" class="subtab-panel' + (tab === 'competitor' ? ' active' : '') + '">' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -237,7 +237,7 @@ App.loadHeatmap_ = async function() {
     var allV = [];
     days.forEach(function(d) { if (data.matrix[d]) for (var h=0;h<24;h++) { var v=data.matrix[d][h]; if(v>0)allV.push(v); } });
     var maxV = allV.length > 0 ? Math.max.apply(null, allV) : 1;
-    var html = '<div class="scrollable-500"><div style="overflow-x:auto;"><table class="heatmap-table">';
+    var html = '<div class="scrollable-500"><div style="overflow-x:auto;"><table class="heatmap-table" role="table" aria-label="投稿時間帯別エンゲージメントヒートマップ">';
     html += '<tr><th class="heatmap-head"></th>';
     for (var h=0;h<24;h++) html += '<th class="heatmap-hour">' + h + '</th>';
     html += '</tr>';
@@ -780,3 +780,5 @@ function html2canvas_(element, filename) {
   img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
 }
 </script>
+
+

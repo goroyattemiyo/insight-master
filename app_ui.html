@@ -112,8 +112,8 @@ App.renderShell = function(activeTab) {
   '<div id="ptrIndicator" class="ptr-indicator"><span class="ptr-icon">↻</span></div>' +
   '<div class="content" id="content"></div>' +
   (this.state.settings.hasAccessToken ?
-    '<button id="quickFab" class="fab">✨</button>' +
-    '<div id="quickModal" class="modal-overlay">' +
+    '<button id="quickFab" class="fab" aria-label="クイック投稿を開く">✨</button>' +
+    '<div id="quickModal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="クイック投稿">' +
       '<div class="modal-sheet">' +
         '<div class="modal-header">' +
           '<div class="text-heading">クイック投稿</div>' +
@@ -138,7 +138,7 @@ App.renderShell = function(activeTab) {
         '<div id="quickGenResults"></div>' +
       '</div>' +
     '</div>' : '') +
-  '<nav class="nav"><div class="nav-inner">' +
+  '<nav class="nav" role="navigation" aria-label="メインナビゲーション"><div class="nav-inner" role="tablist">' +
     this.navBtn_('dashboard', '📊', 'ホーム', activeTab) +
     this.navBtn_('analytics', '📈', '分析', activeTab) +
     this.navBtn_('create', '✨', '作成', activeTab) +
@@ -168,7 +168,7 @@ App.refreshNavLock_ = function() {
 
 App.navBtn_ = function(screen, icon, label, active) {
     var isLocked = !this.isSetupComplete_() && (screen === 'dashboard' || screen === 'analytics' || screen === 'create');
-    return '<button class="nav-item' + (active === screen ? ' active' : '') + (isLocked ? ' nav-locked' : '') + '" data-screen="' + screen + '">' +
+    return '<button role="tab" tabindex="' + (active === screen ? '0' : '-1') + '" aria-selected="' + (active === screen ? 'true' : 'false') + '" class="nav-item' + (active === screen ? ' active' : '') + (isLocked ? ' nav-locked' : '') + '" data-screen="' + screen + '">' +
       '<span class="nav-icon">' + icon + '</span><span>' + label + '</span></button>';
   };
 
@@ -202,6 +202,7 @@ App.bindNavEvents = function() {
     this.bindAccountSwitcherEvents();
     this.initQuickPostFab();
     this.initPullToRefresh_();
+    this.initKeyboardNav_();
   };
 
 App.initPullToRefresh_ = function() {
@@ -587,5 +588,29 @@ App.initSwipeNav_ = function() {
     self.showScreen(screens[next]);
   }, { passive: true });
 };
+
+// === Accessibility: Keyboard Navigation ===
+App.initKeyboardNav_ = function() {
+  var navInner = document.querySelector('.nav-inner');
+  if (!navInner) return;
+  navInner.addEventListener('keydown', function(e) {
+    var tabs = Array.from(this.querySelectorAll('.nav-item:not(.nav-locked)'));
+    var idx = tabs.indexOf(document.activeElement);
+    if (idx === -1) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); tabs[(idx + 1) % tabs.length].focus(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); tabs[(idx - 1 + tabs.length) % tabs.length].focus(); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.activeElement.click(); }
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      var m = document.getElementById('quickModal'); if (m && m.classList.contains('show')) m.classList.remove('show');
+      var dd = document.getElementById('accountDropdown'); if (dd && dd.classList.contains('show')) dd.classList.remove('show');
+      var rm = document.getElementById('refineModal'); if (rm && rm.parentNode) document.body.removeChild(rm);
+      var dm = document.getElementById('draftModal'); if (dm && dm.parentNode) document.body.removeChild(dm);
+    }
+  });
+};
 </script>
+
+
 

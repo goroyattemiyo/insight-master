@@ -12,7 +12,7 @@ App.renderSetupWizard_ = function(s, appUrl) {
       '<div class="wizard-progress-head"><span id="wizardProgressText">ステップ 1/3</span><span>セットアップ</span></div>' +
       '<div class="progress"><div id="wizardProgressBar" class="progress-bar" style="width:33%"></div></div>' +
     '</div>' +
-    '<div class="wizard-step wizard-step-1">' +
+    '<div class="wizard-step wizard-step-1" aria-current="step">' +
       '<div class="card-title">ステップ1: Meta Developer 設定</div>' +
       '<label class="form-label">App ID</label>' +
       '<input type="text" id="wizardAppIdInput" class="input" value="' + this.escapeAttr(s.app_id || '') + '">' +
@@ -100,7 +100,7 @@ App.renderSettingsContent = function() {
     '</div>' +
 
     '<div class="accordion">' +
-      '<div class="accordion-header open" data-accordion="meta"><div class="flex-row gap-8"><span>Meta Developer</span><span class="status-badge ' + (hasMeta ? 'success' : 'warning') + '">' + (hasMeta ? '設定済み' : '未設定') + '</span></div><span class="accordion-chevron">›</span></div>' +
+      '<div class="accordion-header open" tabindex="0" aria-expanded="true" tabindex="0" aria-expanded="true" data-accordion="meta"><div class="flex-row gap-8"><span>Meta Developer</span><span class="status-badge ' + (hasMeta ? 'success' : 'warning') + '">' + (hasMeta ? '設定済み' : '未設定') + '</span></div><span class="accordion-chevron">›</span></div>' +
       '<div class="accordion-body open" data-accordion-body="meta"><div class="accordion-body-inner">' +
         '<label class="text-subheading">App ID</label><input type="text" id="appIdInput" class="input" value="' + this.escapeAttr(s.app_id || '') + '">' +
         '<label class="text-subheading mt-12">App Secret</label><input type="password" id="appSecretInput" class="input" value="" placeholder="' + this.escapeAttr(appSecretPlaceholder) + '">' +
@@ -110,7 +110,7 @@ App.renderSettingsContent = function() {
     '</div>' +
 
     '<div class="accordion">' +
-      '<div class="accordion-header" data-accordion="gemini"><div class="flex-row gap-8"><span>Gemini AI</span><span class="status-badge ' + (hasGemini ? 'success' : 'info') + '">' + (hasGemini ? '設定済み' : '任意') + '</span></div><span class="accordion-chevron">›</span></div>' +
+      '<div class="accordion-header" tabindex="0" aria-expanded="false" tabindex="0" aria-expanded="false" data-accordion="gemini"><div class="flex-row gap-8"><span>Gemini AI</span><span class="status-badge ' + (hasGemini ? 'success' : 'info') + '">' + (hasGemini ? '設定済み' : '任意') + '</span></div><span class="accordion-chevron">›</span></div>' +
       '<div class="accordion-body" data-accordion-body="gemini"><div class="accordion-body-inner">' +
         '<input type="password" id="geminiKeyInput" class="input" placeholder="' + this.escapeAttr(geminiPlaceholder) + '" value="">' +
         '<div class="btn-group mt-12"><a href="https://sordid-echinacea-374.notion.site/Gemini-API-1-313b3545dbc680cda9d2e2eed59028af" target="_blank" class="btn btn-secondary btn-small" style="text-decoration:none;">取得方法</a><button id="saveGeminiKeyBtn" class="btn btn-small">保存</button></div>' +
@@ -118,7 +118,7 @@ App.renderSettingsContent = function() {
     '</div>' +
 
     '<div class="card"><div class="card-title">ガイド＆リンク</div>' + linkListHtml + '</div>' +
-    '<div class="card"><div class="card-title">アプリ情報</div><div class="text-body mb-4">Insight Master</div><div class="text-caption mb-12">v2.0.1 (2026-02-28)</div><div class="btn-group"><input type="text" id="appUrlInput" class="input" value="' + this.escapeAttr(appUrl) + '" readonly><button id="copyAppUrlBtn" class="btn btn-secondary btn-small">コピー</button></div><div class="mt-16"><button id="disconnectBtn" class="btn btn-danger btn-full">連携解除</button></div></div>' +
+    '<div class="card"><div class="card-title">アプリ情報</div><div class="text-body mb-4">Insight Master</div><div class="text-caption mb-12">v2.1.0 (2026-02-28)</div><div class="btn-group"><input type="text" id="appUrlInput" class="input" value="' + this.escapeAttr(appUrl) + '" readonly><button id="copyAppUrlBtn" class="btn btn-secondary btn-small">コピー</button></div><div class="mt-16"><button id="disconnectBtn" class="btn btn-danger btn-full">連携解除</button></div></div>' +
   '</div>';
 };
 
@@ -380,6 +380,9 @@ App.showImportModal_ = function() {
   });
 };
 </script>
+
+
+
 
 
 
