@@ -331,6 +331,10 @@ App.demoData_ = function(action, params) {
     case 'refinePostWithAI':
       return { refined: '【リファイン例】\n\n元の投稿をより魅力的にブラッシュアップしました。\n\n✅ フックを強化（冒頭で興味を引く）\n✅ 具体的な数字を追加\n✅ 最後に問いかけを追加\n\n※ デモモードのため実際のAIリファインは設定完了後にご利用いただけます。' };
     case 'saveDraft':
+    case 'deleteDraft':
+      return { message: '削除しました（デモ）' };
+    case 'toggleDraftStatus':
+      return { message: 'ステータスを変更しました（デモ）' };
       return { message: '下書きを保存しました（デモ）' };
     case 'getDrafts':
       return [
