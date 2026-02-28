@@ -443,8 +443,37 @@ a { color: inherit; text-decoration: none; }
 
 @media (max-width: 600px) {
   .content { padding: 12px; }
-  .card { padding: 16px; }
+  .card { padding: 14px; border-radius: 12px; }
+  .card:hover { transform: none; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04); }
   .btn { padding: 12px 18px; }
+  .screen-content { padding: 12px; }
+  .metric-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .metric-card { padding: 10px; }
+  .metric-value { font-size: 16px; }
+  .metric-icon { font-size: 16px; margin-bottom: 4px; }
+  .grid-2 { grid-template-columns: 1fr; }
+  .header { padding: 10px 12px; }
+  .header-title { gap: 8px; }
+  .brand-logo img { width: 28px; height: 28px; }
+  .brand-en { font-size: 13px; }
+  .brand-ja { font-size: 10px; }
+  .nav-inner { gap: 0; padding: 0 4px; }
+  .nav-item { padding: 6px 2px; font-size: 10px; min-height: 40px; }
+  .nav-icon { font-size: 16px; }
+  .heatmap-table { font-size: 8px; }
+  .heatmap-cell { padding: 1px; font-size: 7px; }
+  .heatmap-day { font-size: 9px; }
+  .modal-sheet { padding: 16px; max-height: 90vh; }
+  .toast { bottom: 70px; font-size: 13px; padding: 10px 14px; }
+  .subtab { padding: 6px 10px; font-size: 11px; min-height: 36px; }
+  .post-text { font-size: 13px; }
+  .post-metrics { gap: 4px 8px; }
+  .post-metric { font-size: 12px; }
+  .ai-result-container { font-size: 12px; padding: 10px; max-height: 400px; }
+  .tips-body { font-size: 11px; }
+  .fab { width: 48px; height: 48px; bottom: 72px; right: 12px; font-size: 20px; }
+  .avatar { width: 40px; height: 40px; }
+  .avatar-placeholder { width: 40px; height: 40px; font-size: 18px; }
 }
 
 .accordion { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
