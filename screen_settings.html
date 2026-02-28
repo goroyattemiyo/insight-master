@@ -1,7 +1,12 @@
-﻿<script>
+<script>
 App.renderSetupWizard_ = function(s, appUrl) {
   var appSecretPlaceholder = s.hasAppSecret ? '••••••••（設定済み）' : '';
   var geminiPlaceholder = s.hasGeminiKey ? '••••••••（設定済み）' : 'AIzaSy...';
+    '<div style="text-align:center;margin-bottom:16px;padding:16px;background:linear-gradient(135deg,#eff6ff,#f0fdf4);border-radius:12px;border:1px solid #bfdbfe;">' +
+      '<div style="font-size:14px;font-weight:600;color:#1e40af;margin-bottom:8px;">🎮 まずは体験してみませんか？</div>' +
+      '<div style="font-size:12px;color:#64748b;margin-bottom:12px;">セットアップなしでサンプルデータで全機能を試せます</div>' +
+      '<button id="startDemoBtn" class="btn btn-full" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;">🚀 デモモードで体験する</button>' +
+    '</div>' +
   return '<div id="setup-wizard" class="card">' +
     '<div class="wizard-progress">' +
       '<div class="wizard-progress-head"><span id="wizardProgressText">ステップ 1/3</span><span>セットアップ</span></div>' +
@@ -125,6 +130,8 @@ App.renderAuthActionsHtml_ = function(hasMeta) {
 App.bindSetupWizardEvents_ = function() {
   var self = this;
   var step = 1;
+  var demoBtn = document.getElementById('startDemoBtn');
+  if (demoBtn) demoBtn.addEventListener('click', function() { self.startDemoMode(); });
   var showStep = function(next) {
     step = next;
     [1,2,3].forEach(function(n) {

@@ -11,6 +11,7 @@ App.renderDashboardContent = function() {
   var showGeminiBanner = !this.state.settings.hasGeminiKey && !sessionStorage.getItem('hideGeminiBanner');
 
   return '<div class="screen-content">' +
+    (this.state.demoMode ? '<div style="padding:12px 16px;background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1px solid #93c5fd;border-radius:12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;"><div><span style="font-weight:600;color:#1e40af;">🎮 デモモード</span><span style="font-size:12px;color:#64748b;margin-left:8px;">サンプルデータを表示中</span></div><button id="exitDemoBtn" class="btn btn-small btn-secondary" style="font-size:11px;">セットアップに戻る</button></div>' : '') +
     '<div class="card"><div class="flex-row gap-12">' +
   (displayPic ? '<img src="' + displayPic + '" class="avatar">' : '<div class="avatar-placeholder">👤</div>') +
   '<div><div class="text-subheading">@' + this.escapeHtml(displayName) + '</div>' +
@@ -97,6 +98,12 @@ App.renderDashboardContent = function() {
 App.loadDashboard = async function() {
   var self = this;
 
+  var exitDemo = document.getElementById('exitDemoBtn');
+  if (exitDemo) exitDemo.addEventListener('click', function() {
+    self.state.demoMode = false;
+    sessionStorage.removeItem('insightmaster_demo');
+    self.showScreen('settings');
+  });
   var closeBanner = document.getElementById('closeGeminiBanner');
   if (closeBanner) {
     closeBanner.addEventListener('click', function() {

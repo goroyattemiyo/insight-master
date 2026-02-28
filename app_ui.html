@@ -1,4 +1,4 @@
-﻿<script>
+<script>
 App.isInAppBrowser = function() {
     var ua = navigator.userAgent || '';
     return [/Line/i,/FBAN/i,/FBAV/i,/Instagram/i,/Twitter/i,/MicroMessenger/i].some(function(p){return p.test(ua);});
@@ -151,6 +151,7 @@ App.renderMainLayout = function(activeTab) {
 };
 
 App.isSetupComplete_ = function() {
+  if (this.state.demoMode) return true;
   var s = this.state.settings || {};
   return !!(s.app_id && s.hasAppSecret && s.hasAccessToken);
 };

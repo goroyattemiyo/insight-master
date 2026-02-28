@@ -71,6 +71,7 @@ var App = {
     params.sheetId = this.state.sheetId;
     var sessionToken = this.state.sessionToken || (window.SERVER_DATA && window.SERVER_DATA.sessionToken);
     if (sessionToken) params.sessionToken = sessionToken;
+    if (self.state.demoMode) return self.demoApi_(action, params);
     return new Promise(function(resolve, reject) {
       google.script.run
         .withSuccessHandler(function(result) {
@@ -173,4 +174,161 @@ var App = {
     }
   }
 };
+
+// === デモモード ===
+
+App.startDemoMode = function() {
+  this.state.demoMode = true;
+  this.state.user = { username: 'demo_user', profilePicUrl: '' };
+  this.state.activeAccount = { accountId: 'demo', username: 'demo_user', profilePicUrl: '' };
+  this.state.settings = { app_id: 'demo', hasAppSecret: true, hasAccessToken: true, hasGeminiKey: true };
+  this.state.accounts = [{ accountId: 'demo', username: 'demo_user' }];
+  sessionStorage.setItem('insightmaster_demo', '1');
+  this.showScreen('dashboard');
+};
+
+App.demoApi_ = function(action, params) {
+  var self = this;
+  return new Promise(function(resolve) {
+    setTimeout(function() {
+      resolve(self.demoData_(action, params));
+    }, 300 + Math.random() * 500);
+  });
+};
+
+App.demoData_ = function(action, params) {
+  var now = new Date();
+  switch (action) {
+    case 'fetchUserInsights':
+      return {
+        accountUsername: 'demo_user',
+        views: 12450, followersCount: 1823, likes: 487,
+        replies: 63, reposts: 28, quotes: 12, clicks: 95,
+        demographics: {
+          country: { '日本': 1520, 'アメリカ': 142, 'タイ': 38, '台湾': 31, 'その他': 92 },
+          city: { '東京': 680, '大阪': 310, '名古屋': 125, '福岡': 98, '札幌': 72 },
+          age: { '18-24': 210, '25-34': 580, '35-44': 620, '45-54': 290, '55-64': 88, '65+': 35 },
+          gender: { 'M': 1050, 'F': 680, 'U': 93 }
+        }
+      };
+
+    case 'getAnalyticsData':
+      var demoPosts = [];
+      for (var i = 0; i < 25; i++) {
+        var d = new Date(now.getTime() - i * 24 * 3600 * 1000);
+        var er = Math.round((Math.random() * 8 + 0.5) * 100) / 100;
+        var views = Math.floor(Math.random() * 3000 + 200);
+        var likes = Math.floor(views * er / 100 * 0.7);
+        demoPosts.push({
+          postId: 'demo_' + i, text: ['朝活で生産性3倍に！','AIツール5選まとめ','フォロワー1000人達成の裏側','週末の過ごし方で人生変わる','読書習慣のつくり方','副業で月5万稼ぐ方法','Threads運用のコツ','モチベーション維持法','時間管理術','SNSマーケティング入門','継続のコツは仕組み化','朝の5分ルーティン','失敗から学んだ3つのこと','ChatGPTの活用術','ミニマリスト生活のすすめ','集中力を高める食事','睡眠の質を上げる方法','投資初心者ガイド','英語学習のロードマップ','メンタルヘルスの大切さ','プログラミング独学法','転職成功のポイント','人間関係の整理術','健康習慣まとめ','目標設定のフレームワーク'][i],
+          mediaType: i % 3 === 0 ? 'IMAGE' : 'TEXT',
+          timestamp: d.toISOString(), views: views, likes: likes,
+          replies: Math.floor(likes * 0.3), reposts: Math.floor(likes * 0.15),
+          quotes: Math.floor(likes * 0.05), engagementRate: er,
+          permalink: 'https://www.threads.net/@demo_user/post/' + i
+        });
+      }
+      demoPosts.sort(function(a, b) { return b.engagementRate - a.engagementRate; });
+      var totalV = 0, totalL = 0, totalR = 0, totalRp = 0, totalQ = 0;
+      demoPosts.forEach(function(p) { totalV += p.views; totalL += p.likes; totalR += p.replies; totalRp += p.reposts; totalQ += p.quotes; });
+      var avgEr = totalV > 0 ? Math.round((totalL + totalR + totalRp + totalQ) / totalV * 10000) / 100 : 0;
+      return {
+        posts: demoPosts,
+        summary: { totalPosts: demoPosts.length, totalViews: totalV, totalLikes: totalL, totalReplies: totalR, totalReposts: totalRp, totalQuotes: totalQ, totalShares: 0, avgEngagementRate: avgEr }
+      };
+
+    case 'getFollowerHistory':
+      var days = (params && params.days) || 7;
+      var dates = [], counts = [], changes = [];
+      var base = 1780;
+      for (var i = days - 1; i >= 0; i--) {
+        var d = new Date(now.getTime() - i * 24 * 3600 * 1000);
+        dates.push((d.getMonth() + 1) + '/' + d.getDate());
+        var change = Math.floor(Math.random() * 12 - 2);
+        base += change;
+        counts.push(base);
+        changes.push(change);
+      }
+      return { dates: dates, counts: counts, changes: changes };
+
+    case 'getTimeAnalysisData':
+      var days = ['日曜','月曜','火曜','水曜','木曜','金曜','土曜'];
+      var matrix = {};
+      days.forEach(function(day) {
+        matrix[day] = {};
+        for (var h = 0; h < 24; h++) {
+          var val = 0;
+          if (h >= 7 && h <= 9) val = Math.random() * 4 + 1;
+          else if (h >= 12 && h <= 13) val = Math.random() * 3 + 1;
+          else if (h >= 20 && h <= 23) val = Math.random() * 6 + 2;
+          else if (h >= 6 && h <= 22) val = Math.random() * 2;
+          matrix[day][h] = Math.round(val * 100) / 100;
+        }
+      });
+      return { matrix: matrix, hasData: true };
+
+    case 'generateBuzzReport':
+      return {
+        stats: {
+          avgER: { top: 6.8, bottom: 0.9 }, avgLength: { top: 85, bottom: 32 },
+          bestHour: 21, bestDay: '水', avgHour: { top: 20, bottom: 14 },
+          mediaRate: { top: 60, bottom: 10 }, questionRate: { top: 50, bottom: 10 },
+          hashtagRate: { top: 30, bottom: 5 }, avgHashtags: { top: 1.5, bottom: 0.2 },
+          hookLength: { top: 22, bottom: 8 }, avgEngagement: { top: 145, bottom: 12 },
+          avgViews: { top: 2800, bottom: 450 }
+        },
+        topPosts: [
+          { text: '朝活で生産性3倍に！実践して1ヶ月の結果を公開します', er: 8.5, likes: 120, views: 2800, hour: 6, day: '月', permalink: '' },
+          { text: 'AIツール5選まとめ。全部無料で使えます', er: 7.2, likes: 95, views: 2200, hour: 21, day: '水', permalink: '' },
+          { text: 'フォロワー1000人達成！やったことを全公開', er: 6.1, likes: 80, views: 1900, hour: 20, day: '金', permalink: '' }
+        ],
+        bottomPosts: [{ text: 'おはよう', er: 0.3 }, { text: 'ランチ', er: 0.5 }],
+        sampleSize: 25, topN: 5, days: params.days || 30, message: null,
+        aiReport: '## 📊 バズパターン分析レポート\n\n### 発見された成功パターン\n1. **具体的な数字を含む投稿**がER 6%超え（例: 「3倍」「5選」「1000人」）\n2. **朝6時台と夜21時台**の投稿が高パフォーマンス\n3. **画像付き投稿**のERはテキストのみの約3倍\n4. **「まとめ」「公開」「方法」**がフック語として有効\n\n### 💡 改善アクション\n1. 投稿文字数を80-100字に調整（現在の上位平均: 85字）\n2. 水・金の21時投稿を週2回ルーティン化\n3. 質問形式「〜していますか？」を冒頭に使う\n\n### 🎯 おすすめテーマ3選\n1. 「AI × 副業」の実践レポート\n2. 「朝活ルーティン」のビフォーアフター\n3. 「フォロワー増加テクニック」数値付き\n\n### ⚠️ 避けるべきパターン\n- 短すぎる投稿（30字未満はER 1%以下）\n- 14時台の投稿（エンゲージメント最低時間帯）'
+      };
+
+    case 'generateTimeAnalysis':
+      return { success: true };
+    case 'fetchAndStorePostAnalytics':
+      return { success: true, total: 25, newPosts: 3, updatedPosts: 22, accountUsername: 'demo_user' };
+    case 'getWeeklyReportList':
+      return [];
+    case 'generateWeeklyReport':
+      return {
+        weekStart: new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10),
+        weekEnd: now.toISOString().slice(0, 10),
+        followers: { start: 1780, end: 1823, change: 43 },
+        summary: { totalPosts: 12, totalViews: 12450, totalLikes: 487, totalReplies: 63, totalReposts: 28, avgEngagementRate: 4.2 },
+        topPosts: [
+          { text: '朝活で生産性3倍に！', er: 8.5, likes: 120, views: 2800 },
+          { text: 'AIツール5選まとめ', er: 7.2, likes: 95, views: 2200 }
+        ],
+        aiSummary: '今週はER 4.2%と好調。特に朝活・AI関連の投稿が高反応。フォロワーも+43と順調に成長中。来週は画像付き投稿を増やすとさらに伸びる見込み。'
+      };
+    case 'setupFollowerTrigger':
+    case 'setupWeeklyTrigger':
+      return { success: true, message: 'デモモードではトリガーは設定されません' };
+    case 'getCompetitors':
+      return [];
+    case 'getWatchPosts':
+      return [];
+    case 'generateAnalysisReport':
+      return { report: '## 📊 分析レポート（デモ）\n\n直近30日間の投稿パフォーマンスを分析しました。\n\n### 主要指標\n- 平均ER: **4.2%**（業界平均2.1%の約2倍）\n- 最も反応が良い時間帯: **21時台**\n- 最も反応が良い曜日: **水曜日**\n\n### 強み\n- 具体的な数字を含む投稿のERが高い\n- 朝活・生産性テーマとの相性が良い\n\n### 改善点\n- 週末の投稿頻度を上げる\n- 動画コンテンツの導入を検討' };
+    case 'generateImprovementSuggestions':
+      return { suggestions: '## 💡 改善提案（デモ）\n\n1. **投稿頻度を週5→7に**\n   毎日投稿することでアルゴリズム評価が上がります\n\n2. **画像を積極活用**\n   現在の画像使用率30%を60%に引き上げましょう\n\n3. **質問で終わる投稿を増やす**\n   「皆さんはどうしていますか？」で返信率+40%\n\n4. **投稿時間を21時に統一**\n   分析データから最もERが高い時間帯です\n\n5. **シリーズ投稿の導入**\n   「朝活Day 1/30」のような継続コンテンツが有効' };
+    case 'getDrafts':
+      return [];
+    case 'getSettings':
+      return this.state.settings;
+    case 'getUserProfile':
+      return { user: this.state.user };
+    case 'getAccounts':
+      return this.state.accounts;
+    case 'getActiveAccount':
+      return this.state.activeAccount;
+    default:
+      return {};
+  }
+};
+
 </script>
