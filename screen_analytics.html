@@ -30,6 +30,20 @@ App.renderAnalyticsDetailContent = function() {
         '<button class="btn btn-small period-btn" data-period="30">30日</button>' +
         '<button class="btn btn-small period-btn" data-period="all">全期間</button></div>' +
       '<div id="postListArea">' + this.renderSkeletonPostList() + '</div></div>' +
+      '<div class="card mb-12" id="buzzAnalysisCard">' +
+        '<div class="flex-row gap-8 mb-8">' +
+          '<div class="card-title" style="flex:1;">🔥 バズパターン分析</div>' +
+          '<select id="buzzPeriodSelect" class="input" style="width:auto;padding:4px 8px;font-size:12px;">' +
+            '<option value="30">30日</option>' +
+            '<option value="60">60日</option>' +
+            '<option value="90">90日</option>' +
+          '</select>' +
+        '</div>' +
+        '<p style="font-size:12px;color:#64748b;margin-bottom:8px;">上位投稿と下位投稿を比較し、バズる法則を自動抽出します</p>' +
+        '<button id="buzzAnalyzeBtn" class="btn btn-primary btn-full mb-8">📊 バズパターンを分析する</button>' +
+        '<div id="buzzStatsArea" style="display:none;"></div>' +
+        '<div id="buzzAIReportArea" style="display:none;"></div>' +
+      '</div>' +
       this.renderTips([
         { title: '📊 ER（エンゲージメント率）とは？', body: 'ER ＝（いいね＋返信＋リポスト＋引用）÷ ビュー数 × 100。つまり「見た人のうち何%が反応したか」を示す数字です。<br>目安: <b>1%未満</b>=改善の余地あり / <b>1〜3%</b>=平均的 / <b>3〜6%</b>=優秀 / <b>6%超</b>=バズ投稿。各投稿の右下 📈 の数字がERです。' },
         { title: '📋 投稿一覧の分析ポイント', body: '① 📈の数字（ER）が高い投稿を探す<br>② 共通点を見つける（テーマ？文体？投稿時間？絵文字？）<br>③ その法則を次の投稿に活かす<br>④ ERが低い投稿も確認して「避けるパターン」を把握する' },
@@ -63,6 +77,7 @@ App.loadAnalytics = function() {
   });
   this.switchAnalyticsTab_(tab, true);
   this.loadAnalyticsDetail();
+  this.bindBuzzAnalysisEvents_();
 };
 
 App.switchAnalyticsTab_ = function(tab, silent) {
@@ -593,5 +608,133 @@ App.compBindAnalysis_ = function() {
       showResult(btn, '🔥 バズパターン分析', res.analysis);
     }).catch(function(err) { showError(btn, '🔥 バズパターン分析', err); });
   });
+};
+
+// === バズパターン分析 UI ===
+
+App.bindBuzzAnalysisEvents_ = function() {
+  var self = this;
+  var btn = document.getElementById('buzzAnalyzeBtn');
+  if (!btn) return;
+
+  btn.addEventListener('click', function() {
+    var period = document.getElementById('buzzPeriodSelect');
+    var days = period ? Number(period.value) : 30;
+    btn.disabled = true;
+    btn.textContent = '分析中（15〜45秒）...';
+
+    self.api('generateBuzzReport', { days: days }).then(function(res) {
+      btn.disabled = false;
+      btn.textContent = '📊 バズパターンを分析する';
+
+      if (res.message && !res.stats) {
+        self.showToast(res.message, 'error');
+        return;
+      }
+
+      self.renderBuzzStats_(res);
+
+      if (res.aiReport) {
+        self.renderBuzzAIReport_(res.aiReport);
+      } else if (res.aiError) {
+        self.renderBuzzAIReport_(null, res.aiError);
+      }
+    }).catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = '📊 バズパターンを分析する';
+      self.showToast('分析エラー: ' + err.message, 'error');
+    });
+  });
+};
+
+App.renderBuzzStats_ = function(data) {
+  var area = document.getElementById('buzzStatsArea');
+  if (!area) return;
+  var s = data.stats;
+
+  var html = '<div style="margin-bottom:12px;font-size:12px;color:#64748b;">' +
+    '📈 ' + data.days + '日間 / ' + data.sampleSize + '投稿中 上位' + data.topN + '件 vs 下位' + data.topN + '件を比較</div>';
+
+  var metrics = [
+    { label: '平均ER', top: s.avgER.top + '%', bottom: s.avgER.bottom + '%', topVal: s.avgER.top, bottomVal: s.avgER.bottom },
+    { label: '平均文字数', top: s.avgLength.top, bottom: s.avgLength.bottom, topVal: s.avgLength.top, bottomVal: s.avgLength.bottom },
+    { label: 'メディア添付率', top: s.mediaRate.top + '%', bottom: s.mediaRate.bottom + '%', topVal: s.mediaRate.top, bottomVal: s.mediaRate.bottom },
+    { label: '質問形式率', top: s.questionRate.top + '%', bottom: s.questionRate.bottom + '%', topVal: s.questionRate.top, bottomVal: s.questionRate.bottom },
+    { label: 'フック長（冒頭文）', top: s.hookLength.top + '字', bottom: s.hookLength.bottom + '字', topVal: s.hookLength.top, bottomVal: s.hookLength.bottom },
+    { label: 'ハッシュタグ率', top: s.hashtagRate.top + '%', bottom: s.hashtagRate.bottom + '%', topVal: s.hashtagRate.top, bottomVal: s.hashtagRate.bottom }
+  ];
+
+  html += '<div style="display:grid;gap:8px;">';
+  metrics.forEach(function(m) {
+    var maxVal = Math.max(m.topVal, m.bottomVal, 1);
+    var topPct = Math.round(m.topVal / maxVal * 100);
+    var bottomPct = Math.round(m.bottomVal / maxVal * 100);
+    var diff = m.topVal - m.bottomVal;
+    var diffLabel = diff > 0 ? '+' + (typeof m.topVal === 'number' && m.topVal % 1 !== 0 ? diff.toFixed(1) : Math.round(diff)) : String(Math.round(diff));
+    var diffColor = diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#64748b';
+
+    html += '<div style="background:#f8fafc;border-radius:8px;padding:10px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+        '<span style="font-size:12px;font-weight:600;">' + m.label + '</span>' +
+        '<span style="font-size:11px;font-weight:700;color:' + diffColor + ';">' + diffLabel + '</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">' +
+        '<span style="font-size:10px;width:28px;color:#10b981;">上位</span>' +
+        '<div style="flex:1;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">' +
+          '<div style="width:' + topPct + '%;height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:4px;"></div>' +
+        '</div>' +
+        '<span style="font-size:10px;width:40px;text-align:right;">' + m.top + '</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+        '<span style="font-size:10px;width:28px;color:#ef4444;">下位</span>' +
+        '<div style="flex:1;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">' +
+          '<div style="width:' + bottomPct + '%;height:100%;background:linear-gradient(90deg,#ef4444,#f87171);border-radius:4px;"></div>' +
+        '</div>' +
+        '<span style="font-size:10px;width:40px;text-align:right;">' + m.bottom + '</span>' +
+      '</div>' +
+    '</div>';
+  });
+  html += '</div>';
+
+  html += '<div style="margin-top:12px;padding:10px;background:#eff6ff;border-radius:8px;border-left:3px solid #3b82f6;">' +
+    '<div style="font-size:12px;font-weight:600;color:#1e40af;margin-bottom:4px;">🎯 最適条件</div>' +
+    '<div style="font-size:12px;color:#1e3a5f;">' +
+      '投稿時間: <b>' + s.bestHour + '時</b> / 曜日: <b>' + s.bestDay + '曜日</b> / ' +
+      '文字数: <b>' + Math.round(s.avgLength.top * 0.8) + '〜' + Math.round(s.avgLength.top * 1.2) + '文字</b>' +
+    '</div>' +
+  '</div>';
+
+  if (data.topPosts && data.topPosts.length > 0) {
+    html += '<div style="margin-top:12px;"><div style="font-size:12px;font-weight:600;margin-bottom:6px;">🏆 上位投稿サンプル</div>';
+    data.topPosts.slice(0, 3).forEach(function(p, i) {
+      html += '<div style="padding:8px;background:#f0fdf4;border-radius:6px;margin-bottom:4px;font-size:11px;">' +
+        '<span style="color:#10b981;font-weight:700;">ER ' + p.er.toFixed(1) + '%</span> ' +
+        '<span style="color:#64748b;">' + p.day + ' ' + p.hour + '時</span> ' +
+        p.text + '</div>';
+    });
+    html += '</div>';
+  }
+
+  area.style.display = 'block';
+  area.innerHTML = html;
+};
+
+App.renderBuzzAIReport_ = function(report, error) {
+  var area = document.getElementById('buzzAIReportArea');
+  if (!area) return;
+
+  if (error) {
+    area.style.display = 'block';
+    area.innerHTML = '<div style="padding:10px;background:#fef3c7;border-radius:8px;font-size:12px;color:#92400e;">' +
+      '⚠️ ' + error + '</div>';
+    return;
+  }
+
+  if (report) {
+    area.style.display = 'block';
+    area.innerHTML = '<div style="margin-top:12px;padding:12px;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;">' +
+      '<div class="markdown-body" style="font-size:13px;line-height:1.7;">' + App.parseMarkdown(report) + '</div>' +
+    '</div>';
+  }
 };
 </script>

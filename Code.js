@@ -1,4 +1,4 @@
-﻿// ===========================================
+// ===========================================
 // Code.gs - エントリーポイント・ルーター・グローバル設定
 // ===========================================
 
@@ -257,6 +257,8 @@ function processApiRequest(params) {
       case 'analyzeCompetitorStyle':      result = analyzeCompetitorStyle(ss, params); break;
       case 'analyzeVsSelf':               result = analyzeVsSelf(ss, params); break;
       case 'analyzeBuzzPatterns':         result = analyzeBuzzPatterns(ss, params); break;
+      case 'analyzeBuzzPattern':          result = analyzeBuzzPattern(ss, params.days); break;
+      case 'generateBuzzReport':          result = generateBuzzReport(ss, params.days); break;
 
       // Followers
       case 'getFollowerHistory':      result = getFollowerHistory(params.days); break;
