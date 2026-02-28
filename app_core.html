@@ -161,6 +161,7 @@ var App = {
     });
     if (this.refreshNavLock_) this.refreshNavLock_();
 
+    if (this.initSwipeNav_) this.initSwipeNav_();
     switch (screen) {
       case 'dashboard':
         this.loadDashboard();
