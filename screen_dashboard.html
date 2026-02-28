@@ -1,4 +1,4 @@
-﻿<script>
+<script>
 // ===========================================
 // Dashboard 画面（修正版）
 // ===========================================
@@ -615,8 +615,19 @@ App.renderWeeklyReport_ = function(data) {
     html += '<div class="mt-12"><div class="text-subheading mb-8">🤖 AI分析</div>' +
       '<div class="ai-result-container">' + this.formatMarkdown_(data.aiSummary) + '</div></div>';
   }
+  html += '<div class="flex-row gap-8 mt-12">' +
+    '<button id="exportWeeklyCSV" class="btn btn-secondary btn-small" style="flex:1;">📥 CSV出力</button>' +
+    '</div>';
   el.innerHTML = html;
-};
+  var weeklyData = data;
+  var csvBtn = document.getElementById('exportWeeklyCSV');
+  if (csvBtn) csvBtn.addEventListener('click', function() {
+    var s = weeklyData.summary || {};
+    var f = weeklyData.followers || {};
+    var headers = ['週開始', '週終了', 'フォロワー開始', 'フォロワー終了', '増減', '総ビュー', 'いいね', '返信', 'リポスト', '平均ER(%)', '投稿数'];
+    var rows = [[weeklyData.weekStart, weeklyData.weekEnd, f.start||0, f.end||0, f.change||0, s.totalViews||0, s.totalLikes||0, s.totalReplies||0, s.totalReposts||0, s.avgEngagementRate||0, s.totalPosts||0]];
+    App.exportCSV('weekly_report', headers, rows);
+  });
 
 App.loadWeeklyReportList_ = async function() {
   var self = this;

@@ -28,7 +28,7 @@ App.renderAnalyticsDetailContent = function() {
       '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
         '<button class="btn btn-small period-btn active" data-period="7">7日</button>' +
         '<button class="btn btn-small period-btn" data-period="30">30日</button>' +
-        '<button class="btn btn-small period-btn" data-period="all">全期間</button></div>' +
+        '<button class="btn btn-small period-btn" data-period="all">全期間</button><button id="exportPostsCSV" class="btn btn-small btn-secondary" style="margin-left:auto;">📥 CSV出力</button></div>' +
       '<div id="postListArea">' + this.renderSkeletonPostList() + '</div></div>' +
       '<div class="card mb-12" id="buzzAnalysisCard">' +
         '<div class="flex-row gap-8 mb-8">' +
@@ -43,6 +43,7 @@ App.renderAnalyticsDetailContent = function() {
         '<button id="buzzAnalyzeBtn" class="btn btn-primary btn-full mb-8">📊 バズパターンを分析する</button>' +
         '<div id="buzzStatsArea" style="display:none;"></div>' +
         '<div id="buzzAIReportArea" style="display:none;"></div>' +
+        '<div class="flex-row gap-8 mt-8" id="buzzExportArea" style="display:none;"><button id="exportBuzzImg" class="btn btn-secondary btn-small" style="flex:1;">📷 画像保存</button></div>' +
       '</div>' +
       this.renderTips([
         { title: '📊 ER（エンゲージメント率）とは？', body: 'ER ＝（いいね＋返信＋リポスト＋引用）÷ ビュー数 × 100。つまり「見た人のうち何%が反応したか」を示す数字です。<br>目安: <b>1%未満</b>=改善の余地あり / <b>1〜3%</b>=平均的 / <b>3〜6%</b>=優秀 / <b>6%超</b>=バズ投稿。各投稿の右下 📈 の数字がERです。' },
@@ -129,6 +130,16 @@ App.loadAnalyticsDetail = async function() {
     });
   });
   await this.loadPostList_(7);
+  var csvBtn = document.getElementById('exportPostsCSV');
+  if (csvBtn) csvBtn.addEventListener('click', function() {
+    var posts = self.postListState_ && self.postListState_.posts;
+    if (!posts || !posts.length) { self.showToast('データがありません', 'error'); return; }
+    var headers = ['日付', 'テキスト', 'メディア', 'いいね', '返信', 'リポスト', '引用', '閲覧数', 'ER(%)'];
+    var rows = posts.map(function(p) {
+      return [p.timestamp ? new Date(p.timestamp).toLocaleDateString('ja-JP') : '', p.text || '', p.mediaType || '', p.likes||0, p.replies||0, p.reposts||0, p.quotes||0, p.views||0, p.engagementRate||0];
+    });
+    self.exportCSV('posts_analytics', headers, rows);
+  });
 };
 
 App.loadPostList_ = async function(periodDays) {
@@ -719,6 +730,18 @@ App.renderBuzzStats_ = function(data) {
   area.innerHTML = html;
 };
 
+  var exportArea = document.getElementById('buzzExportArea');
+  if (exportArea) exportArea.style.display = 'flex';
+  var imgBtn = document.getElementById('exportBuzzImg');
+  if (imgBtn && !imgBtn.dataset.bound) {
+    imgBtn.dataset.bound = 'true';
+    imgBtn.addEventListener('click', function() {
+      var statsArea = document.getElementById('buzzStatsArea');
+      if (!statsArea) return;
+      html2canvas_(statsArea, 'buzz_analysis');
+    });
+  }
+
 App.renderBuzzAIReport_ = function(report, error) {
   var area = document.getElementById('buzzAIReportArea');
   if (!area) return;
@@ -737,4 +760,23 @@ App.renderBuzzAIReport_ = function(report, error) {
     '</div>';
   }
 };
+
+function html2canvas_(element, filename) {
+  var rect = element.getBoundingClientRect();
+  var canvas = document.createElement('canvas');
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  var svgData = '<foreignObject width="' + rect.width + '" height="' + rect.height + '">' +
+    '<div xmlns="http://www.w3.org/1999/xhtml" style="font-family:sans-serif;">' + element.innerHTML + '</div></foreignObject>';
+  var svgStr = '<svg xmlns="http://www.w3.org/2000/svg" width="' + rect.width + '" height="' + rect.height + '">' + svgData + '</svg>';
+  var img = new Image();
+  img.onload = function() {
+    ctx.drawImage(img, 0, 0);
+    var dataUrl = canvas.toDataURL('image/png'); var a = document.createElement('a'); a.href = dataUrl; a.download = filename + '_' + new Date().toISOString().slice(0,10) + '.png'; document.body.appendChild(a); a.click(); document.body.removeChild(a); App.showToast('画像を保存しました', 'success');
+  };
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+}
 </script>
