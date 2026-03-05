@@ -103,6 +103,16 @@ App.renderGenerateContent = function() {
           '<button class="btn btn-small gen-mode-btn' + (savedMode === 'thread' ? ' active' : '') + '" data-mode="thread" role="radio" aria-checked="false">🧵 ツリー</button>' +
           '<button class="btn btn-small gen-mode-btn' + (savedMode === 'analysis-based' ? ' active' : '') + '" data-mode="analysis-based" role="radio" aria-checked="false">📊 分析ベース</button></div>' +
         '<p class="form-label-small mt-8" id="modeDesc">テーマに沿った3〜5パターンの投稿文を生成</p></div>' +
+      '<div id="angleWrap" class="mb-16" style="display:none;"><label class="form-label">切り口（スレッド・分析ベース用）</label>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+          '<button class="btn btn-small angle-btn active" data-angle="" style="font-size:12px;">🎯 自動</button>' +
+          '<button class="btn btn-small angle-btn" data-angle="tools" style="font-size:12px;">🔧 ツール紹介</button>' +
+          '<button class="btn btn-small angle-btn" data-angle="howto" style="font-size:12px;">📝 やり方・手順</button>' +
+          '<button class="btn btn-small angle-btn" data-angle="mistakes" style="font-size:12px;">💥 失敗談</button>' +
+          '<button class="btn btn-small angle-btn" data-angle="comparison" style="font-size:12px;">⚖️ 比較</button>' +
+          '<button class="btn btn-small angle-btn" data-angle="case" style="font-size:12px;">📊 事例</button>' +
+          '<button class="btn btn-small angle-btn" data-angle="beginner" style="font-size:12px;">🔰 初心者向け</button>' +
+        '</div></div>' +
       '<div id="analysisPreview" style="display:none;"></div>' +
       '<button id="generateBtn" class="btn btn-primary btn-full" ' + (hasKey ? '' : 'disabled') + '>✨ 生成する</button>' +
     '</div>' +
@@ -135,6 +145,12 @@ App.bindGenerateEvents = function() {
       var desc = document.getElementById('modeDesc');
       if (desc) desc.textContent = modeDescs[selectedMode] || '';
 
+      // 切り口セレクタの表示制御
+      var angleWrap = document.getElementById('angleWrap');
+      if (angleWrap) {
+        angleWrap.style.display = (selectedMode === 'thread' || selectedMode === 'analysis-based') ? 'block' : 'none';
+      }
+
       // 分析ベース選択時にプレビュー表示
       var preview = document.getElementById('analysisPreview');
       if (selectedMode === 'analysis-based') {
@@ -157,11 +173,36 @@ App.bindGenerateEvents = function() {
 
     try {
       var action = selectedMode === 'analysis-based' ? 'generatePostWithAnalysis' : 'generatePostWithAI';
-      var result = await self.api(action, { theme: theme, mode: selectedMode, count: 3 });
+      var result = await self.api(action, { theme: theme, mode: selectedMode, count: 3, angle: selectedAngle || '' });
       self.renderGenerateResults_(result);
     } catch (e) { self.showToast('生成エラー: ' + e.message, 'error'); }
     genBtn.disabled = false; genBtn.textContent = '✨ 生成する';
   });
+
+  // 切り口セレクタのイベント
+  var selectedAngle = '';
+  document.querySelectorAll('.angle-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.angle-btn').forEach(function(b) {
+        b.classList.remove('active');
+        b.style.background = '';
+        b.style.color = '';
+      });
+      this.classList.add('active');
+      this.style.background = 'var(--primary)';
+      this.style.color = '#fff';
+      selectedAngle = this.getAttribute('data-angle');
+    });
+  });
+  // 初期状態: 自動ボタンをアクティブに
+  var defaultAngle = document.querySelector('.angle-btn[data-angle=""]');
+  if (defaultAngle) { defaultAngle.style.background = 'var(--primary)'; defaultAngle.style.color = '#fff'; }
+
+  // 初期表示: モードに応じてangleWrapを制御
+  var angleWrapInit = document.getElementById('angleWrap');
+  if (angleWrapInit) {
+    angleWrapInit.style.display = (selectedMode === 'thread' || selectedMode === 'analysis-based') ? 'block' : 'none';
+  }
 };
 
 // 分析ベースモード選択時のプレビュー読み込み
@@ -242,29 +283,34 @@ App.renderGenerateResults_ = function(result) {
   }
 
   result.results.forEach(function(item, idx) {
-    if (result.mode === 'thread' && item.parent) {
+    var replies = item.replies || [];
+    var isThread = (result.mode === 'thread' && (item.parent || replies.length > 0));
+    var parentText = item.parent || item.text || '';
+
+    if (isThread) {
       // ツリー投稿
-      html += '<div class="card card-relative"><button class="ai-save-btn" data-index="' + idx + '" title="保存">💾</button><div class="card-title">🧵 ツリーパターン ' + (idx+1) + '</div>' +
-        '<div style="padding:10px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px;border-left:3px solid var(--accent-purple);">' +
-          '<div style="font-size:11px;color:var(--accent-purple-strong);margin-bottom:4px;">親投稿</div>' +
-          '<div style="font-size:14px;line-height:1.6;">' + self.escapeHtml(item.parent) + '</div></div>';
-      (item.replies || []).forEach(function(reply, ri) {
-        html += '<div style="padding:10px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px;margin-left:16px;border-left:2px solid var(--accent-purple-soft);">' +
-          '<div style="font-size:11px;color:var(--accent-purple-strong);margin-bottom:4px;">返信 ' + (ri+1) + '</div>' +
-          '<div style="font-size:14px;line-height:1.6;">' + self.escapeHtml(reply) + '</div></div>';
+      html += '<div class="card card-relative"><button class="ai-save-btn" data-index="' + idx + '" title="保存">💾</button>';
+      html += '<div class="card-title">案' + (idx+1) + ' <span style="font-size:11px;background:var(--success-soft);color:var(--success);padding:2px 8px;border-radius:10px;">🧵 スレッド</span></div>';
+      html += '<div style="padding:10px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px;border-left:3px solid var(--primary);">' +
+          '<div style="font-size:14px;line-height:1.6;white-space:pre-wrap;">' + self.escapeHtml(parentText) + '</div></div>';
+      replies.forEach(function(reply, ri) {
+        html += '<div style="padding:10px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px;margin-left:16px;font-size:13px;">' +
+          '<div style="font-size:11px;color:var(--primary);margin-bottom:4px;font-weight:600;">↳ 返信' + (ri+1) + '</div>' +
+          '<div style="line-height:1.6;white-space:pre-wrap;">' + self.escapeHtml(reply) + '</div></div>';
       });
-      // ★ 【親】【返信N】形式で保存（parseThreadParts_ が正しく分割できる）
-      var threadText = '【親】' + item.parent;
-      (item.replies || []).forEach(function(reply, ri) {
-        threadText += '\n\n【返信' + (ri+1) + '】' + reply;
-      });
+      if (item.reason) {
+        html += '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;padding:8px;background:var(--bg-tertiary);border-radius:8px;">💡 ' + self.escapeHtml(item.reason) + '</div>';
+      }
+      // コピー・保存ボタン
+      var fullThread = parentText + '\n---\n' + replies.join('\n---\n');
       html += '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">';
-      html += '<button class="btn btn-small btn-secondary copy-gen-btn" data-text="' + self.escapeAttr(item.parent) + '">📋 親コピー</button>';
-      (item.replies || []).forEach(function(reply, ri) {
+      html += '<button class="btn btn-small btn-secondary copy-gen-btn" data-text="' + self.escapeAttr(fullThread) + '">📋 全文コピー</button>';
+      html += '<button class="btn btn-small btn-secondary copy-gen-btn" data-text="' + self.escapeAttr(parentText) + '">📋 親コピー</button>';
+      replies.forEach(function(reply, ri) {
         html += '<button class="btn btn-small btn-secondary copy-gen-btn" data-text="' + self.escapeAttr(reply) + '">📋 返信' + (ri+1) + '</button>';
       });
-      html += '<div class="btn-group">' +
-        '<button class="btn btn-small btn-primary save-draft-btn">すべて保存</button></div></div>';
+      html += '<button class="btn btn-small btn-primary save-draft-btn">💾 下書き保存</button></div>';
+      html += '</div>';
     } else {
       // 通常 or 分析ベース投稿
       var text = item.text || (typeof item === 'string' ? item : JSON.stringify(item));
@@ -307,9 +353,11 @@ App.renderGenerateResults_ = function(result) {
     btn.addEventListener('click', function() {
       var drafts = [];
       result.results.forEach(function(item) {
-        if (result.mode === 'thread' && item.parent) {
-          var threadText = '【親】' + item.parent;
-          (item.replies || []).forEach(function(reply, ri) {
+        var reps = item.replies || [];
+        var pText = item.parent || item.text || '';
+        if (result.mode === 'thread' && (item.parent || reps.length > 0)) {
+          var threadText = '【親】' + pText;
+          reps.forEach(function(reply, ri) {
             threadText += '\n\n【返信' + (ri+1) + '】' + reply;
           });
           drafts.push({ text: threadText, type: 'thread' });
@@ -331,12 +379,15 @@ App.renderGenerateResults_ = function(result) {
       var idx = parseInt(this.getAttribute('data-index'), 10);
       var item = result.results[idx];
       if (!item) return;
-      var text = (result.mode === 'thread' && item.parent) ? (function() {
-        var t = '【親】' + item.parent;
-        (item.replies || []).forEach(function(reply, ri) { t += '\n\n【返信' + (ri+1) + '】' + reply; });
+      var reps = item.replies || [];
+      var pText = item.parent || item.text || '';
+      var isThreadItem = result.mode === 'thread' && (item.parent || reps.length > 0);
+      var text = isThreadItem ? (function() {
+        var t = '【親】' + pText;
+        reps.forEach(function(reply, ri) { t += '\n\n【返信' + (ri+1) + '】' + reply; });
         return t;
       })() : (item.text || item);
-      var type = (result.mode === 'thread' && item.parent) ? 'thread' : 'single';
+      var type = isThreadItem ? 'thread' : 'single';
       var selfBtn = this;
       self.api('saveDraft', { text: text, type: type, source: 'ai_single' }).then(function() {
         selfBtn.textContent = '✅';
