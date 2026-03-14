@@ -114,27 +114,48 @@ function exchangeToken(ss, code) {
  * ユーザープロフィール取得
  */
 function getUserProfile(ss) {
-  var activeAccount = getActiveAccount(ss);
-  if (activeAccount && activeAccount.accessToken) {
-    return {
-      success: true,
-      user: {
-        username: activeAccount.username || '',
-        profilePicUrl: activeAccount.profilePicUrl || '',
-        userId: activeAccount.userId || ''
-      }
+  var activeAccount = getActiveAccountAuth(ss);
+  if (!activeAccount) {
+    var settings = getSettings(ss);
+    if (!settings.access_token) throw new Error('認証が必要です');
+    activeAccount = {
+      accessToken: settings.access_token,
+      userId: settings.user_id,
+      username: settings.username || '',
+      profilePicUrl: settings.profile_pic_url || ''
     };
   }
-
-  var settings = getSettings(ss);
-  if (!settings.access_token) throw new Error('認証が必要です');
-
+  var username = activeAccount.username || '';
+  var profilePicUrl = activeAccount.profilePicUrl || '';
+  try {
+    var url = CONFIG.THREADS_API_BASE + '/' + activeAccount.userId +
+      '?fields=id,username,threads_profile_picture_url&access_token=' + activeAccount.accessToken;
+    var fresh = fetchJson_(url);
+    if (fresh.username) username = fresh.username;
+    if (fresh.threads_profile_picture_url) profilePicUrl = fresh.threads_profile_picture_url;
+    try {
+      saveSettings(ss, { profile_pic_url: profilePicUrl, username: username });
+      updateAccountPic_(ss, activeAccount.userId || activeAccount.accountId, profilePicUrl);
+    } catch (e2) { /* ignore */ }
+  } catch (e) { /* API fail: use cached */ }
   return {
     success: true,
     user: {
-      username: settings.username || '',
-      profilePicUrl: settings.profile_pic_url || '',
-      userId: String(settings.user_id)
+      username: username,
+      profilePicUrl: profilePicUrl,
+      userId: String(activeAccount.userId || '')
     }
   };
+}
+
+function updateAccountPic_(ss, userId, picUrl) {
+  var sheet = ss.getSheetByName('アカウント');
+  if (!sheet) return;
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]) === String(userId)) {
+      sheet.getRange(i + 1, 5).setValue(picUrl);
+      return;
+    }
+  }
 }
