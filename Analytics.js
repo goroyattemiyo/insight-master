@@ -537,7 +537,7 @@ function generateBuzzReport(ss, days) {
   if (!analysis.stats) return analysis;
 
   var settings = getSettings(ss);
-  var apiKey = settings.geminiApiKey;
+  var apiKey = settings['gemini_api_key'];
   if (!apiKey) {
     analysis.aiReport = null;
     analysis.aiError = 'Gemini APIキーが設定されていません。統計データのみ表示します。';
@@ -570,7 +570,7 @@ function generateBuzzReport(ss, days) {
     '### ⚠️ 避けるべきパターン\n（下位投稿から学ぶ注意点）';
 
   try {
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+    var url = CONFIG.GEMINI_API_BASE + '?key=' + apiKey;
     var payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 2000 } };
     var options = { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true };
     var response = UrlFetchApp.fetch(url, options);
