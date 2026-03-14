@@ -3,6 +3,11 @@
 // ===========================================
 
 /**
+ * セキュアキー: PropertiesServiceに保存し、シートには残さない
+ */
+var SECURE_KEYS_ = ['access_token', 'app_secret', 'gemini_api_key'];
+
+/**
  * スプレッドシートID検証
  */
 function validateSheetId(sheetId) {
@@ -41,7 +46,6 @@ function initializeSheets(ss) {
         ['gemini_api_key', ''],
       ]
     },
-    
     {
       name: 'アカウント',
       headers: ['account_id', 'access_token', 'user_id', 'username', 'profile_pic_url', 'token_expires', 'created_at']
@@ -62,7 +66,6 @@ function initializeSheets(ss) {
       name: '下書き',
       headers: ['draft_id', 'account_id', 'text', 'type', 'created_at', 'status', 'source']
     },
-    // 旧「競合分析」を以下2つに置き換え
     {
       name: '競合アカウント',
       headers: ['competitor_id', 'account_id', 'username', 'display_name', 'category', 'followers_count', 'followers_updated', 'memo', 'created_at']
@@ -102,6 +105,9 @@ function initializeSheets(ss) {
       }
     }
   });
+
+  // 初回マイグレーション: シートに残っているセキュアキーをPropertiesServiceに移行
+  migrateSecureKeys_(ss);
 }
 
 /**
@@ -137,9 +143,79 @@ function ensureSettingsKeys_(sheet, requiredKeys) {
 }
 
 // ===========================================
+// セキュアキーの PropertiesService 管理
+// ===========================================
+
+/**
+ * セキュアキーを PropertiesService から取得
+ */
+function getSecureProperty_(key) {
+  try {
+    return PropertiesService.getScriptProperties().getProperty(key) || '';
+  } catch (e) {
+    console.error('getSecureProperty_ error for ' + key + ':', e.message);
+    return '';
+  }
+}
+
+/**
+ * セキュアキーを PropertiesService に保存
+ */
+function setSecureProperty_(key, value) {
+  try {
+    if (value === '' || value === null || value === undefined) {
+      PropertiesService.getScriptProperties().deleteProperty(key);
+    } else {
+      PropertiesService.getScriptProperties().setProperty(key, String(value));
+    }
+  } catch (e) {
+    console.error('setSecureProperty_ error for ' + key + ':', e.message);
+  }
+}
+
+/**
+ * シートに残っているセキュアキーを PropertiesService に移行し、シートからは削除
+ */
+function migrateSecureKeys_(ss) {
+  var sheet = ss.getSheetByName('設定');
+  if (!sheet) return;
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow === 0) return;
+
+  var data = sheet.getRange(1, 1, lastRow, 2).getValues();
+  var migrated = false;
+
+  for (var i = 0; i < data.length; i++) {
+    var key = data[i][0];
+    var value = data[i][1];
+
+    if (SECURE_KEYS_.indexOf(key) >= 0 && value && String(value).trim() !== '') {
+      // PropertiesService に既存値がなければ移行
+      var existing = getSecureProperty_(key);
+      if (!existing) {
+        setSecureProperty_(key, String(value).trim());
+        console.log('migrateSecureKeys_: migrated ' + key + ' to PropertiesService');
+      }
+      // シートからは値を削除（キー行は残す）
+      sheet.getRange(i + 1, 2).setValue('');
+      migrated = true;
+    }
+  }
+
+  if (migrated) {
+    SpreadsheetApp.flush();
+    console.log('migrateSecureKeys_: migration completed');
+  }
+}
+
+// ===========================================
 // 設定の読み書き
 // ===========================================
 
+/**
+ * 設定を取得（通常キーはシート、セキュアキーはPropertiesService）
+ */
 function getSettings(ss) {
   var sheet = ss.getSheetByName('設定');
   if (!sheet) return {};
@@ -152,13 +228,26 @@ function getSettings(ss) {
       settings[data[i][0]] = data[i][1];
     }
   }
+
+  // セキュアキーを PropertiesService からマージ（シートの値より優先）
+  SECURE_KEYS_.forEach(function(key) {
+    var secureValue = getSecureProperty_(key);
+    if (secureValue) {
+      settings[key] = secureValue;
+    }
+  });
+
   return settings;
 }
 
+/**
+ * 設定を保存（セキュアキーはPropertiesService、通常キーはシート）
+ */
 function saveSettings(ss, params) {
   var sheet = ss.getSheetByName('設定');
   if (!sheet) sheet = ss.insertSheet('設定');
 
+  // バリデーション
   if (Object.prototype.hasOwnProperty.call(params, 'app_id')) {
     var appId = String(params.app_id || '').trim();
     if (appId && !/^\d{10,20}$/.test(appId)) {
@@ -177,6 +266,21 @@ function saveSettings(ss, params) {
 
   for (var key in params) {
     if (params[key] === undefined || params[key] === null) continue;
+
+    // セキュアキーは PropertiesService に保存
+    if (SECURE_KEYS_.indexOf(key) >= 0) {
+      setSecureProperty_(key, params[key]);
+      // シートに行があれば値をクリア（キー行は残す）
+      for (var j = 0; j < data.length; j++) {
+        if (data[j][0] === key) {
+          sheet.getRange(j + 1, 2).setValue('');
+          break;
+        }
+      }
+      continue;
+    }
+
+    // 通常キーはシートに保存
     var found = false;
     for (var i = 0; i < data.length; i++) {
       if (data[i][0] === key) {

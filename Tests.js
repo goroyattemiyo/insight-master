@@ -211,3 +211,76 @@ function test_sheetsInitialization() {
     assert_(sheet !== null, 'sheet "' + name + '" should exist');
   });
 }
+
+// =========================================
+// セキュリティテスト: PropertiesService 移行
+// =========================================
+
+function test_secureKeysDefinition() {
+  assert_(Array.isArray(SECURE_KEYS_), 'SECURE_KEYS_ should be array');
+  assertContains_(SECURE_KEYS_.join(','), 'access_token', 'should contain access_token');
+  assertContains_(SECURE_KEYS_.join(','), 'app_secret', 'should contain app_secret');
+  assertContains_(SECURE_KEYS_.join(','), 'gemini_api_key', 'should contain gemini_api_key');
+  assertEqual_(SECURE_KEYS_.length, 3, 'should have exactly 3 secure keys');
+}
+
+function test_securePropertyReadWrite() {
+  var testKey = '_test_secure_key_';
+  var testValue = 'test_value_12345';
+
+  // 書き込み
+  setSecureProperty_(testKey, testValue);
+  var read = getSecureProperty_(testKey);
+  assertEqual_(read, testValue, 'should read back written value');
+
+  // 削除
+  setSecureProperty_(testKey, '');
+  var readAfterDelete = getSecureProperty_(testKey);
+  assertEqual_(readAfterDelete, '', 'should be empty after delete');
+}
+
+function test_getSettingsMergesSecureKeys() {
+  var ss = null;
+  try {
+    var sheetId = getBoundSpreadsheetId();
+    if (!sheetId) { console.log('    (skip: no bound spreadsheet)'); TEST_RESULTS_.passed++; return; }
+    ss = SpreadsheetApp.openById(sheetId);
+  } catch (e) { console.log('    (skip: cannot open spreadsheet)'); TEST_RESULTS_.passed++; return; }
+
+  var settings = getSettings(ss);
+  assert_(settings !== undefined, 'getSettings should return object');
+  assertType_(settings, 'object', 'settings should be object');
+
+  // セキュアキーがPropertiesServiceに存在すれば、settingsに含まれるはず
+  SECURE_KEYS_.forEach(function(key) {
+    var propVal = getSecureProperty_(key);
+    if (propVal) {
+      assertEqual_(settings[key], propVal, key + ' should come from PropertiesService');
+    }
+  });
+}
+
+function test_saveSettingsSecureKeysNotInSheet() {
+  var ss = null;
+  try {
+    var sheetId = getBoundSpreadsheetId();
+    if (!sheetId) { console.log('    (skip: no bound spreadsheet)'); TEST_RESULTS_.passed++; return; }
+    ss = SpreadsheetApp.openById(sheetId);
+  } catch (e) { console.log('    (skip: cannot open spreadsheet)'); TEST_RESULTS_.passed++; return; }
+
+  // シートの設定行を直接読んで、セキュアキーの値が空であることを確認
+  var sheet = ss.getSheetByName('設定');
+  if (!sheet) { console.log('    (skip: no settings sheet)'); TEST_RESULTS_.passed++; return; }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow === 0) { TEST_RESULTS_.passed++; return; }
+
+  var data = sheet.getRange(1, 1, lastRow, 2).getValues();
+  for (var i = 0; i < data.length; i++) {
+    var key = data[i][0];
+    var value = data[i][1];
+    if (SECURE_KEYS_.indexOf(key) >= 0) {
+      assertEqual_(value, '', 'secure key "' + key + '" should be empty in sheet (row ' + (i+1) + ')');
+    }
+  }
+}

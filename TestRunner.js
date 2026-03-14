@@ -136,6 +136,13 @@ function runAllTests() {
   runTest_('test_getAnalyticsData_periodNumber', test_getAnalyticsData_periodNumber);
   runTest_('test_sheetsInitialization', test_sheetsInitialization);
 
+  // --- セキュリティテスト ---
+  console.log('\n[セキュリティテスト]');
+  runTest_('test_secureKeysDefinition', test_secureKeysDefinition);
+  runTest_('test_securePropertyReadWrite', test_securePropertyReadWrite);
+  runTest_('test_getSettingsMergesSecureKeys', test_getSettingsMergesSecureKeys);
+  runTest_('test_saveSettingsSecureKeysNotInSheet', test_saveSettingsSecureKeysNotInSheet);
+
   // --- 結果サマリー ---
   console.log('\n========================================');
   console.log('結果: ' + TEST_RESULTS_.passed + ' passed, ' + TEST_RESULTS_.failed + ' failed, ' + (TEST_RESULTS_.passed + TEST_RESULTS_.failed) + ' total');
