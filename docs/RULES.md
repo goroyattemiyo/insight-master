@@ -66,8 +66,8 @@
 | TD-02 | screen_analytics.html 43KB 分割 | 高 | 未着手 |
 | TD-03 | processApiRequest 50+case分割 | 中 | 未着手 |
 | TD-04 | access_token 二重保存問題 | 中 | 未着手 |
-| TD-05 | Geminiエンドポイント不整合 | 高 | 未着手 |
-| TD-06 | APIキー名不統一 | 高 | 未着手 |
+| TD-05 | Geminiエンドポイント不整合 | 高 | ✅ 解消 (a86029a) |
+| TD-06 | APIキー名不統一 | 高 | ✅ 解消 (a86029a) |
 | TD-07 | innerHTML XSSリスク | 中 | 未着手 |
 
 ## ファイルサイズ監視 (2026-03-14)
