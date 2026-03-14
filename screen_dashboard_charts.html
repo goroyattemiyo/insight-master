@@ -1,0 +1,346 @@
+<script>
+      html += '<div style="font-weight:600;font-size:13px;margin-bottom:8px;">' + sec.icon + ' ' + sec.label + '</div>';
+      html += this.renderDemoBreakdown_(data, sec.max);
+      html += '</div>';
+    }
+  }
+  html += '</div></div>';
+  return html;
+};
+
+App.renderDemoBreakdown_ = function(data, maxItems) {
+  var html = '';
+  var genderMap = { M: '男性', F: '女性', U: '未設定' };
+  var items = [];
+  var keys = Object.keys(data);
+  for (var i = 0; i < keys.length; i++) {
+    items.push({ label: keys[i], value: data[keys[i]] });
+  }
+  items.sort(function(a, b) { return b.value - a.value; });
+  if (items.length > maxItems) items = items.slice(0, maxItems);
+  var maxVal = items.length > 0 ? items[0].value : 1;
+  var total = 0;
+  for (var i = 0; i < items.length; i++) total += items[i].value;
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    var label = genderMap[item.label] || item.label;
+    var pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
+    var barWidth = maxVal > 0 ? Math.round((item.value / maxVal) * 100) : 0;
+    html += '<div style="margin-bottom:6px;">';
+    html += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">';
+    html += '<span>' + label + '</span>';
+    html += '<span style="color:var(--text-secondary);">' + item.value + '人 (' + pct + '%)</span>';
+    html += '</div>';
+    html += '<div class="demo-bar-track">';
+    html += '<div class="demo-bar-fill" style="width:' + barWidth + '%;"></div>';
+    html += '</div></div>';
+  }
+  return html;
+};
+
+App.dashboardRunAI_ = function(action, loadingText, btn) {
+  var self = this;
+  var resultDiv = document.getElementById('aiDashboardResult');
+  if (!resultDiv) return;
+  btn.disabled = true;
+  var origText = btn.textContent;
+  btn.textContent = loadingText;
+  resultDiv.innerHTML = '<div style="text-align:center;padding:20px;"><div class="loading-spinner" style="margin:0 auto 12px;"></div><div class="text-caption">Gemini AIが分析中（15〜45秒）...</div></div>';
+  this.api(action, { periodDays: 30 }).then(function(res) {
+    btn.disabled = false;
+    btn.textContent = origText;
+    var content = res.report || res.suggestions || '';
+    if (!content) {
+      resultDiv.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;padding:12px;">結果を取得できませんでした</div>';
+      return;
+    }
+    resultDiv.innerHTML = '<div class="ai-result-container">' +
+      self.formatMarkdown_(content) +
+    '</div>';
+  }).catch(function(err) {
+    btn.disabled = false;
+    btn.textContent = origText;
+    resultDiv.innerHTML = '<div style="color:var(--error);font-size:13px;padding:12px;">' + self.escapeHtml(err.message || String(err)) + '</div>';
+  });
+};
+
+// === フォロワー推移グラフ ===
+
+App.drawFollowerChart = function(canvasId, data) {
+  var canvas = document.getElementById(canvasId);
+  if (!canvas || !data || !data.dates || data.dates.length === 0) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  var W = rect.width, H = rect.height;
+  var pad = { top: 20, right: 16, bottom: 30, left: 48 };
+  var gW = W - pad.left - pad.right;
+  var gH = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  var counts = data.counts;
+  var mn = Math.min.apply(null, counts);
+  var mx = Math.max.apply(null, counts);
+  if (mn === mx) { mn = mn - 10; mx = mx + 10; }
+  var range = mx - mn;
+  mn = mn - range * 0.1;
+  mx = mx + range * 0.1;
+
+  function xPos(i) { return pad.left + (i / (counts.length - 1 || 1)) * gW; }
+  function yPos(v) { return pad.top + gH - ((v - mn) / (mx - mn)) * gH; }
+
+  // Grid lines
+  var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+  ctx.lineWidth = 1;
+  for (var g = 0; g <= 4; g++) {
+    var gy = pad.top + (gH / 4) * g;
+    ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(W - pad.right, gy); ctx.stroke();
+  }
+
+  // Gradient fill
+  var grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + gH);
+  grad.addColorStop(0, isDark ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.15)');
+  grad.addColorStop(1, 'rgba(99,102,241,0)');
+  ctx.beginPath();
+  ctx.moveTo(xPos(0), yPos(counts[0]));
+  for (var i = 1; i < counts.length; i++) ctx.lineTo(xPos(i), yPos(counts[i]));
+  ctx.lineTo(xPos(counts.length - 1), pad.top + gH);
+  ctx.lineTo(xPos(0), pad.top + gH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(xPos(0), yPos(counts[0]));
+  for (var i = 1; i < counts.length; i++) ctx.lineTo(xPos(i), yPos(counts[i]));
+  ctx.strokeStyle = '#6366f1';
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Dots
+  for (var i = 0; i < counts.length; i++) {
+    ctx.beginPath();
+    ctx.arc(xPos(i), yPos(counts[i]), 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#6366f1';
+    ctx.fill();
+    ctx.strokeStyle = isDark ? '#1e1e2e' : '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // X labels
+  ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  var step = counts.length <= 7 ? 1 : counts.length <= 30 ? 5 : 15;
+  for (var i = 0; i < data.dates.length; i += step) {
+    ctx.fillText(data.dates[i], xPos(i), H - 8);
+  }
+
+  // Y labels
+  ctx.textAlign = 'right';
+  for (var g = 0; g <= 4; g++) {
+    var val = Math.round(mx - ((mx - mn) / 4) * g);
+    var gy = pad.top + (gH / 4) * g;
+    ctx.fillText(val.toLocaleString(), pad.left - 6, gy + 4);
+  }
+};
+
+App.renderFollowerSummary_ = function(data) {
+  var el = document.getElementById('followerSummary');
+  if (!el || !data || data.counts.length === 0) {
+    if (el) el.innerHTML = '<div class="text-caption">データがありません。設定画面でトリガーを有効にしてください。</div>';
+    return;
+  }
+  var current = data.counts[data.counts.length - 1];
+  var prev = data.counts.length > 1 ? data.counts[data.counts.length - 2] : current;
+  var first = data.counts[0];
+  var dailyChange = current - prev;
+  var periodChange = current - first;
+  var periodPct = first > 0 ? Math.round(periodChange / first * 1000) / 10 : 0;
+  var trendIcon = dailyChange > 0 ? '📈' : dailyChange < 0 ? '📉' : '➡️';
+  var trendColor = dailyChange > 0 ? 'var(--success)' : dailyChange < 0 ? 'var(--error)' : 'var(--text-secondary)';
+
+  el.innerHTML =
+    '<div style="flex:1;text-align:center;">' +
+      '<div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + current.toLocaleString() + '</div>' +
+      '<div class="text-caption">フォロワー</div>' +
+    '</div>' +
+    '<div style="flex:1;text-align:center;">' +
+      '<div style="font-size:18px;font-weight:600;color:' + trendColor + ';">' + trendIcon + ' ' + (dailyChange >= 0 ? '+' : '') + dailyChange + '</div>' +
+      '<div class="text-caption">前日比</div>' +
+    '</div>' +
+    '<div style="flex:1;text-align:center;">' +
+      '<div style="font-size:18px;font-weight:600;color:' + trendColor + ';">' + (periodPct >= 0 ? '+' : '') + periodPct + '%</div>' +
+      '<div class="text-caption">期間変動</div>' +
+    '</div>';
+};
+
+App.loadFollowerChart_ = async function(days) {
+  try {
+    var data = await this.api('getFollowerHistory', { days: days || 7 });
+    if (data) {
+      this.followerData_ = data;
+      this.renderFollowerSummary_(data);
+      this.drawFollowerChart('followerCanvas', data);
+    }
+  } catch (e) {
+    console.error('loadFollowerChart_ error:', e);
+  }
+};
+
+App.bindFollowerChartEvents_ = function() {
+  var self = this;
+  var btns = document.querySelectorAll('[data-follower-days]');
+  btns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      btns.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      self.loadFollowerChart_(parseInt(btn.getAttribute('data-follower-days')));
+    });
+  });
+
+  var csvBtn = document.getElementById('exportFollowerCSV');
+  if (csvBtn) csvBtn.addEventListener('click', function() {
+    var d = self.followerData_;
+    if (!d || !d.dates.length) { self.showToast('データがありません', 'error'); return; }
+    var headers = ['日付', 'フォロワー数', '前日比'];
+    var rows = d.dates.map(function(date, i) { return [date, d.counts[i], d.changes[i]]; });
+    self.exportCSV('followers', headers, rows);
+  });
+
+  var imgBtn = document.getElementById('exportFollowerImg');
+  if (imgBtn) imgBtn.addEventListener('click', function() {
+    self.exportAsImage('followerCanvas', 'followers_chart');
+  });
+
+  var triggerBtn = document.getElementById('setupFollowerTriggerBtn');
+  if (triggerBtn) triggerBtn.addEventListener('click', async function() {
+    triggerBtn.disabled = true;
+    triggerBtn.textContent = '設定中...';
+    try {
+      var r = await self.api('setupFollowerTrigger', {});
+      self.showToast(r.message || 'トリガーを設定しました', 'success');
+      triggerBtn.textContent = '✅ 自動記録が有効です';
+    } catch (e) {
+      self.showToast('設定エラー: ' + e.message, 'error');
+      triggerBtn.disabled = false;
+      triggerBtn.textContent = '⏰ 毎日自動記録を有効にする';
+    }
+  });
+};
+
+// === 週次レポート ===
+
+App.bindWeeklyReportEvents_ = function() {
+  var self = this;
+  var genBtn = document.getElementById('generateWeeklyBtn');
+  if (genBtn) genBtn.addEventListener('click', async function() {
+    genBtn.disabled = true;
+    genBtn.textContent = '生成中（30秒〜1分）...';
+    try {
+      var r = await self.api('generateWeeklyReport', {});
+      if (r.message) { self.showToast(r.message, 'info'); }
+      else { self.showToast('週次レポートを生成しました', 'success'); }
+      self.renderWeeklyReport_(r);
+      self.loadWeeklyReportList_();
+    } catch (e) { self.showToast('生成エラー: ' + e.message, 'error'); }
+    genBtn.disabled = false;
+    genBtn.textContent = '📋 今週のレポートを生成';
+  });
+
+  var trigBtn = document.getElementById('setupWeeklyTriggerBtn');
+  if (trigBtn) trigBtn.addEventListener('click', async function() {
+    trigBtn.disabled = true;
+    try {
+      var r = await self.api('setupWeeklyTrigger', {});
+      self.showToast(r.message || '設定しました', 'success');
+      trigBtn.textContent = '✅ 自動生成ON';
+    } catch (e) {
+      self.showToast('設定エラー: ' + e.message, 'error');
+      trigBtn.disabled = false;
+    }
+  });
+};
+
+App.renderWeeklyReport_ = function(data) {
+  var el = document.getElementById('weeklyReportContent');
+  if (!el || !data) return;
+  if (data.message && !data.summary) {
+    el.innerHTML = '<div class="text-caption">' + this.escapeHtml(data.message) + '</div>';
+    return;
+  }
+  var s = data.summary || {};
+  var f = data.followers || {};
+  var fSign = f.change >= 0 ? '+' : '';
+  var html = '<div class="text-caption mb-8">' + this.escapeHtml(data.weekStart || '') + ' 〜 ' + this.escapeHtml(data.weekEnd || '') + '</div>';
+  html += '<div class="metric-grid">' +
+    this.renderMetricCard('👥', 'フォロワー', (f.end || 0) + ' (' + fSign + (f.change || 0) + ')') +
+    this.renderMetricCard('👁', '総ビュー', s.totalViews) +
+    this.renderMetricCard('📈', '平均ER', (s.avgEngagementRate || 0) + '%') +
+    this.renderMetricCard('📝', '投稿数', s.totalPosts) +
+  '</div>';
+  if (data.topPosts && data.topPosts.length > 0) {
+    html += '<div class="text-subheading mt-12 mb-8">🏆 TOP投稿</div>';
+    data.topPosts.forEach(function(p) {
+      html += '<div style="padding:8px;background:var(--bg-secondary);border-radius:8px;margin-bottom:6px;font-size:13px;">' +
+        '<span style="color:var(--success);font-weight:700;">ER ' + (p.er || 0).toFixed(1) + '%</span> ' +
+        this.escapeHtml(p.text || '') + '</div>';
+    }.bind(this));
+  }
+  if (data.aiSummary) {
+    html += '<div class="mt-12"><div class="text-subheading mb-8">🤖 AI分析</div>' +
+      '<div class="ai-result-container">' + this.formatMarkdown_(data.aiSummary) + '</div></div>';
+  }
+  html += '<div class="flex-row gap-8 mt-12">' +
+    '<button id="exportWeeklyCSV" class="btn btn-secondary btn-small" style="flex:1;">📥 CSV出力</button>' +
+    '</div>';
+  el.innerHTML = html;
+  var weeklyData = data;
+  var csvBtn = document.getElementById('exportWeeklyCSV');
+  if (csvBtn) csvBtn.addEventListener('click', function() {
+    var s = weeklyData.summary || {};
+    var f = weeklyData.followers || {};
+    var headers = ['週開始', '週終了', 'フォロワー開始', 'フォロワー終了', '増減', '総ビュー', 'いいね', '返信', 'リポスト', '平均ER(%)', '投稿数'];
+    var rows = [[weeklyData.weekStart, weeklyData.weekEnd, f.start||0, f.end||0, f.change||0, s.totalViews||0, s.totalLikes||0, s.totalReplies||0, s.totalReposts||0, s.avgEngagementRate||0, s.totalPosts||0]];
+    App.exportCSV('weekly_report', headers, rows);
+  });
+
+};
+App.loadWeeklyReportList_ = async function() {
+  var self = this;
+  var listEl = document.getElementById('weeklyReportList');
+  if (!listEl) return;
+  try {
+    var list = await this.api('getWeeklyReportList', {});
+    if (!list || list.length === 0) {
+      listEl.innerHTML = '<div class="text-caption">過去のレポートはありません</div>';
+      return;
+    }
+    var html = '<div class="text-subheading mb-8">過去のレポート</div>';
+    list.slice(0, 8).forEach(function(item, idx) {
+      html += '<div class="flex-row gap-8 mb-6" style="padding:8px;background:var(--bg-secondary);border-radius:6px;cursor:pointer;" data-week-offset="' + idx + '">' +
+        '<div style="flex:1;"><div class="text-body">' + item.weekStart + ' 〜 ' + item.weekEnd + '</div>' +
+        '<div class="text-caption">' + (item.postCount || 0) + '投稿 / ER ' + (item.avgER || 0) + '% / フォロワー ' + (item.followersChange >= 0 ? '+' : '') + (item.followersChange || 0) + '</div></div>' +
+        '<span class="text-caption">›</span></div>';
+    });
+    listEl.innerHTML = html;
+    listEl.querySelectorAll('[data-week-offset]').forEach(function(el) {
+      el.addEventListener('click', async function() {
+        var offset = parseInt(this.getAttribute('data-week-offset'), 10);
+        try {
+          var report = await self.api('getWeeklyReport', { weekOffset: offset });
+          if (report) self.renderWeeklyReport_(report);
+        } catch (e) { self.showToast('取得エラー: ' + e.message, 'error'); }
+      });
+    });
+  } catch (e) { console.error('loadWeeklyReportList_ error:', e); }
+};
+</script>

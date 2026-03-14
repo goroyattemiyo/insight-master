@@ -1,0 +1,321 @@
+<script>
+
+// ===========================================
+// Retention: Growth Score
+// ===========================================
+
+App.loadGrowthScore_ = async function() {
+  try {
+    var data = await this.api('getGrowthScore', {});
+    this.renderGrowthScore_(data);
+  } catch (e) {
+    // スコアがない場合は計算を試みる
+    try {
+      var data = await this.api('calculateGrowthScore', {});
+      this.renderGrowthScore_(data);
+    } catch (e2) {
+      document.getElementById('gsValue').textContent = '--';
+      document.getElementById('gsChange').textContent = 'データ不足';
+    }
+  }
+};
+
+App.renderGrowthScore_ = function(data) {
+  if (!data) return;
+  var score = data.current || 0;
+  var change = data.change || 0;
+  var bd = data.breakdown || {};
+
+  // Ring animation
+  var circumference = 314; // 2 * PI * 50
+  var offset = circumference - (score / 100) * circumference;
+  var ring = document.getElementById('gsRingFill');
+  if (ring) {
+    ring.classList.remove('high', 'medium', 'low', 'critical');
+    if (score >= 75) ring.classList.add('high');
+    else if (score >= 50) ring.classList.add('medium');
+    else if (score >= 25) ring.classList.add('low');
+    else ring.classList.add('critical');
+    // Delay for animation
+    setTimeout(function() { ring.setAttribute('stroke-dashoffset', offset); }, 100);
+  }
+
+  // Score number with count-up animation
+  var valEl = document.getElementById('gsValue');
+  if (valEl) {
+    var current = 0;
+    var step = Math.max(1, Math.floor(score / 30));
+    var interval = setInterval(function() {
+      current += step;
+      if (current >= score) { current = score; clearInterval(interval); }
+      valEl.textContent = current;
+    }, 40);
+  }
+
+  // Change indicator
+  var changeEl = document.getElementById('gsChange');
+  if (changeEl) {
+    changeEl.classList.remove('up', 'down', 'neutral');
+    if (change > 0) {
+      changeEl.classList.add('up');
+      changeEl.textContent = '先週比 +' + change + ' ↑';
+    } else if (change < 0) {
+      changeEl.classList.add('down');
+      changeEl.textContent = '先週比 ' + change + ' ↓';
+    } else {
+      changeEl.classList.add('neutral');
+      changeEl.textContent = '先週比 ±0';
+    }
+  }
+
+  // Breakdown
+  var ids = { gsBdFollower: bd.follower, gsBdER: bd.erTrend, gsBdFreq: bd.frequency, gsBdAI: bd.aiUsage };
+  Object.keys(ids).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = (ids[id] || 0) + '/25';
+  });
+};
+
+// ===========================================
+// Retention: Daily Check-in
+// ===========================================
+
+App.loadCheckIn_ = async function() {
+  try {
+    var data = await this.api('dailyCheckIn', {});
+    this.renderCheckIn_(data);
+  } catch (e) {
+    var msgEl = document.getElementById('checkInMessage');
+    if (msgEl) msgEl.textContent = '今日も頑張りましょう！';
+  }
+};
+
+App.renderCheckIn_ = function(data) {
+  if (!data) return;
+
+  var msgEl = document.getElementById('checkInMessage');
+  if (msgEl) msgEl.textContent = data.todayMessage || '今日も頑張りましょう！';
+
+  var streakEl = document.getElementById('streakCount');
+  if (streakEl) streakEl.textContent = data.streak || 0;
+
+  var timeEl = document.getElementById('recTime');
+  if (timeEl) timeEl.textContent = data.recommendedTime || '--:--';
+
+  var themeEl = document.getElementById('recTheme');
+  if (themeEl) themeEl.textContent = data.recommendedTheme || '---';
+
+  // Hide streak badge if 0
+  var badge = document.getElementById('streakBadge');
+  if (badge && (!data.streak || data.streak < 1)) {
+    badge.style.display = 'none';
+  }
+};
+
+// ===========================================
+// Retention: Goals
+// ===========================================
+
+App.loadGoals_ = async function() {
+  try {
+    var goals = await this.api('getGoals', {});
+    this.renderGoals_(goals);
+  } catch (e) {
+    var el = document.getElementById('goalList');
+    if (el) el.innerHTML = '<div class="text-caption">目標を設定してみましょう</div>';
+  }
+};
+
+App.renderGoals_ = function(goals) {
+  var el = document.getElementById('goalList');
+  if (!el) return;
+  var self = this;
+
+  if (!goals || goals.length === 0) {
+    el.innerHTML = '<div class="text-caption" style="text-align:center;padding:12px 0;">目標を設定して成長を可視化しましょう！</div>';
+    return;
+  }
+
+  var html = '';
+  goals.forEach(function(g) {
+    var pct = g.percentage || 0;
+    var barClass = pct >= 100 ? 'goal-progress-bar achieved' : 'goal-progress-bar';
+    html += '<div class="mb-12" data-goal-id="' + (g.id || '') + '">' +
+      '<div class="goal-header">' +
+        '<div class="goal-label">' + self.escapeHtml(g.label || '') + '</div>' +
+        '<div class="goal-pct">' + pct + '%</div>' +
+      '</div>' +
+      '<div class="goal-progress"><div class="' + barClass + '" style="width:0%;"></div></div>' +
+      '<div class="goal-detail">' +
+        '<span>' + (g.current || 0) + ' / ' + (g.target || 0) + '</span>' +
+        '<button class="btn btn-secondary btn-small delete-goal-btn" data-goal-id="' + (g.id || '') + '" style="padding:4px 8px;font-size:10px;min-height:auto;">削除</button>' +
+      '</div>' +
+    '</div>';
+
+    // Trigger celebration if just achieved
+    if (g.justAchieved) {
+      setTimeout(function() { self.showConfetti_(); self.showToast('🎉 目標達成おめでとう！', 'success'); }, 500);
+    }
+  });
+  el.innerHTML = html;
+
+  // Animate progress bars
+  setTimeout(function() {
+    goals.forEach(function(g) {
+      var goalEl = el.querySelector('[data-goal-id="' + g.id + '"] .goal-progress-bar');
+      if (goalEl) goalEl.style.width = Math.min(100, g.percentage || 0) + '%';
+    });
+  }, 100);
+
+  // Bind delete buttons
+  el.querySelectorAll('.delete-goal-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      var goalId = this.getAttribute('data-goal-id');
+      if (!confirm('この目標を削除しますか？')) return;
+      try {
+        await self.api('deleteGoal', { goalId: goalId });
+        self.showToast('目標を削除しました', 'success');
+        self.loadGoals_();
+      } catch (err) { self.showToast(err.message, 'error'); }
+    });
+  });
+};
+
+// ===========================================
+// Retention: Confetti Animation
+// ===========================================
+
+App.showConfetti_ = function() {
+  var container = document.createElement('div');
+  container.className = 'confetti-container';
+  var colors = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8B5CF6', '#ec4899', '#14b8a6'];
+  for (var i = 0; i < 50; i++) {
+    var piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDelay = (Math.random() * 2) + 's';
+    piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+    piece.style.width = (6 + Math.random() * 8) + 'px';
+    piece.style.height = (6 + Math.random() * 8) + 'px';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    container.appendChild(piece);
+  }
+  document.body.appendChild(container);
+  setTimeout(function() { if (container.parentNode) container.remove(); }, 4000);
+};
+
+// ===========================================
+// Retention: Goal Setting Modal
+// ===========================================
+
+App.showGoalModal_ = function() {
+  var self = this;
+  var existing = document.getElementById('goalModal');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'goalModal';
+  overlay.className = 'modal-overlay show';
+  overlay.innerHTML =
+    '<div class="modal-sheet" style="transform:translateY(0);">' +
+      '<div class="modal-header">' +
+        '<div class="text-heading">🎯 目標設定</div>' +
+        '<button class="modal-close" id="closeGoalModal">✕</button>' +
+      '</div>' +
+      '<div class="mb-12">' +
+        '<label class="form-label mb-8">目標タイプ</label>' +
+        '<div class="goal-type-selector" id="goalTypeSelector">' +
+          '<div class="goal-type-btn active" data-type="follower_increase"><div class="gt-icon">👥</div><div class="gt-label">フォロワー増</div></div>' +
+          '<div class="goal-type-btn" data-type="post_count"><div class="gt-icon">📝</div><div class="gt-label">投稿数</div></div>' +
+          '<div class="goal-type-btn" data-type="er_target"><div class="gt-icon">📈</div><div class="gt-label">ER目標</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="mb-12">' +
+        '<label class="form-label">目標値</label>' +
+        '<input type="number" id="goalTargetInput" class="input" placeholder="例: 100" min="1">' +
+      '</div>' +
+      '<div class="mb-12">' +
+        '<label class="form-label">ラベル（任意）</label>' +
+        '<input type="text" id="goalLabelInput" class="input" placeholder="例: 今月の目標: フォロワー+100">' +
+      '</div>' +
+      '<button id="submitGoalBtn" class="btn btn-primary btn-full">目標を設定する</button>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.getElementById('closeGoalModal').addEventListener('click', function() { overlay.remove(); });
+
+  // Type selector
+  var selector = document.getElementById('goalTypeSelector');
+  selector.addEventListener('click', function(e) {
+    var btn = e.target.closest('.goal-type-btn');
+    if (!btn) return;
+    selector.querySelectorAll('.goal-type-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+  });
+
+  // Submit
+  document.getElementById('submitGoalBtn').addEventListener('click', async function() {
+    var typeBtn = selector.querySelector('.goal-type-btn.active');
+    var type = typeBtn ? typeBtn.getAttribute('data-type') : 'follower_increase';
+    var target = parseInt(document.getElementById('goalTargetInput').value) || 0;
+    var label = document.getElementById('goalLabelInput').value.trim();
+
+    if (!target || target <= 0) {
+      self.showToast('目標値を入力してください', 'error');
+      return;
+    }
+
+    this.disabled = true;
+    this.textContent = '設定中...';
+    try {
+      await self.api('setGoal', { type: type, target: target, label: label });
+      self.showToast('🎯 目標を設定しました！', 'success');
+      overlay.remove();
+      self.loadGoals_();
+    } catch (err) {
+      self.showToast(err.message, 'error');
+      this.disabled = false;
+      this.textContent = '目標を設定する';
+    }
+  });
+};
+
+// ===========================================
+// Retention: Event Bindings
+// ===========================================
+
+App.bindRetentionEvents_ = function() {
+  var self = this;
+
+  // Growth Score recalc
+  var recalcBtn = document.getElementById('gsRecalcBtn');
+  if (recalcBtn) {
+    recalcBtn.addEventListener('click', async function() {
+      recalcBtn.disabled = true;
+      recalcBtn.textContent = '計算中...';
+      try {
+        var data = await self.api('calculateGrowthScore', {});
+        self.renderGrowthScore_(data);
+        self.showToast('Growth Score を更新しました', 'success');
+      } catch (e) { self.showToast(e.message, 'error'); }
+      recalcBtn.disabled = false;
+      recalcBtn.textContent = '🔄 再計算';
+    });
+  }
+
+  // Add goal button
+  var addGoalBtn = document.getElementById('addGoalBtn');
+  if (addGoalBtn) {
+    addGoalBtn.addEventListener('click', function() {
+      self.showGoalModal_();
+    });
+  }
+};
+</script>
+</script>
