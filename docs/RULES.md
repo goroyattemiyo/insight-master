@@ -62,8 +62,8 @@
 ## 技術的負債台帳
 | ID | 内容 | 優先度 | 状態 |
 |----|------|--------|------|
-| TD-01 | screen_dashboard.html 47KB 分割 | 高 | 未着手 |
-| TD-02 | screen_analytics.html 43KB 分割 | 高 | 未着手 |
+| TD-01 | screen_dashboard.html 47KB 分割 | 高 | ✅ 解消 (aad1757) |
+| TD-02 | screen_analytics.html 43KB 分割 | 高 | ⏳ 784行(上限内) |
 | TD-03 | processApiRequest 50+case分割 | 中 | 未着手 |
 | TD-04 | access_token 二重保存問題 | 中 | 未着手 |
 | TD-05 | Geminiエンドポイント不整合 | 高 | ✅ 解消 (a86029a) |
@@ -73,12 +73,14 @@
 ## ファイルサイズ監視 (2026-03-14)
 | ファイル | 推定行数 | 状態 |
 |----------|----------|------|
-| screen_dashboard.html | ~1200行 | 🔴 強制分割 |
-| screen_analytics.html | ~1100行 | 🔴 強制分割 |
-| screen_keywords.html | ~750行 | ⚠️ 要注意 |
-| Code.js | ~350行 | ⚠️ 要注意 |
-| Analytics.js | ~300行 | ⚠️ 要注意 |
-| 他のファイル | <300行 | ✅ OK |
+| screen_dashboard.html | 371行 | ✅ OK |
+| screen_analytics.html | 784行 | ⚠️ 要注意 |
+| screen_keywords.html | 492行 | ✅ OK |
+| Code.js | 312行 | ✅ OK |
+| Analytics.js | 407行 | ⚠️ 要注意 |
+| styles.html | 632行 | ⚠️ 要注意 |
+| Gemini.js | 206行 | ✅ OK |
+| 他のファイル | <500行 | ✅ OK |
 
 ## ルール変更履歴
 - 2026-03-14: 初版作成 (dev-rules テンプレートから適用)
