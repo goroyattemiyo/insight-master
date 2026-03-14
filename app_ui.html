@@ -617,6 +617,22 @@ App.initKeyboardNav_ = function() {
     }
   });
 };
+
+// === 画像403フォールバック ===
+document.addEventListener('error', function(e) {
+  var el = e.target;
+  if (el.tagName === 'IMG' && !el.dataset.fallback) {
+    el.dataset.fallback = '1';
+    if (el.classList.contains('header-avatar') || el.classList.contains('switcher-pic') || el.classList.contains('account-option-pic')) {
+      el.style.display = 'none';
+    } else if (el.classList.contains('avatar')) {
+      var ph = document.createElement('div');
+      ph.className = 'avatar-placeholder';
+      ph.textContent = '\uD83D\uDC64';
+      el.parentNode.replaceChild(ph, el);
+    }
+  }
+}, true);
 </script>
 
 
