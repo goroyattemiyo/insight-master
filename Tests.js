@@ -15,7 +15,7 @@ function test_parseGeminiJson_normal() {
 }
 
 function test_parseGeminiJson_codeBlock() {
-  var input = 'Some text before\n\\\json\n[{"text":"from block"}]\n\\\\nSome text after';
+  var input = "Some text before\\n```json\\n[{\\\"text\\\":\\\"from block\\\"}]\\n```\\nSome text after";
   var result = parseGeminiJson_(input);
   assert_(Array.isArray(result), 'should parse from code block');
   assertEqual_(result[0].text, 'from block', 'should extract from code block');
