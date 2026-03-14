@@ -1,4 +1,4 @@
-﻿// ===========================================
+// ===========================================
 // Code.gs - エントリーポイント・ルーター・グローバル設定
 // ===========================================
 
@@ -155,6 +155,13 @@ function doGet(e) {
         initialData.accounts = getAccounts(ss) || [];
         initialData.activeAccount = getActiveAccount(ss) || null;
         if (initialData.activeAccount) {
+          try {
+            var freshProfile = getUserProfile(ss);
+            if (freshProfile && freshProfile.user) {
+              initialData.activeAccount.profilePicUrl = freshProfile.user.profilePicUrl || initialData.activeAccount.profilePicUrl;
+              initialData.activeAccount.username = freshProfile.user.username || initialData.activeAccount.username;
+            }
+          } catch (ep) { /* profile refresh failed, use cached */ }
           initialData.user = {
             username: initialData.activeAccount.username,
             profilePicUrl: initialData.activeAccount.profilePicUrl
