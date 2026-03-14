@@ -354,18 +354,4 @@ App.formatTimeAgo_ = function(ts) {
   return days + '日前';
 };
 
-App.renderDemographics_ = function(demo) {
-  var html = '<div class="card"><div class="card-title">👥 フォロワー属性</div>';
-  html += '<div class="grid-2" style="gap:16px;">';
-  var sections = [
-    { key: 'country', icon: '🌍', label: '国', max: 5 },
-    { key: 'city',    icon: '🏙️', label: '都市', max: 5 },
-    { key: 'age',     icon: '📊', label: '年齢', max: 10 },
-    { key: 'gender',  icon: '👤', label: '性別', max: 5 }
-  ];
-  for (var s = 0; s < sections.length; s++) {
-    var sec = sections[s];
-    var data = demo[sec.key];
-    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-      html += '<div>';
 </script>
