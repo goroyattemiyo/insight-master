@@ -251,8 +251,11 @@ App.loadDashboardData_ = async function() {
       '<div class="empty-state-icon">⚠️</div>' +
       '<div class="empty-state-title">インサイトを取得できませんでした</div>' +
       '<div class="empty-state-desc">' + this.escapeHtml(insMsg) + '</div>' +
+      '<button id="retryInsightsBtn" class="btn btn-primary" style="margin-top:12px;">🔄 再試行</button>' +
       '</div>';
     demoArea.innerHTML = '';
+    var retryBtn = document.getElementById('retryInsightsBtn');
+    if (retryBtn) retryBtn.addEventListener('click', function() { self.loadDashboardData_(); });
   }
   if (analyticsResult.ok) {
     var a = analyticsResult.value;
