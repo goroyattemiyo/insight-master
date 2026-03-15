@@ -467,7 +467,7 @@ function sendWeeklySummaryEmail() {
     var body = 'こんにちは、@' + username + ' さん！\n\n' +
       '📊 先週のサマリーをお届けします。\n\n' +
       '━━━━━━━━━━━━━━━━━━━━\n' +
-      '🚀 Growth Score: ' + score + '/100 (' + scoreSign + scoreChange + ')\n' +
+      '🚀 成長スコア: ' + score + '/100 (' + scoreSign + scoreChange + ')\n' +
       '📈 平均ER: ' + er + '%\n' +
       '📝 投稿数: ' + (summary.totalPosts || 0) + '件\n' +
       '👁 総ビュー: ' + (summary.totalViews || 0).toLocaleString() + '\n' +

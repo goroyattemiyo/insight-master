@@ -297,7 +297,7 @@ App.bindRetentionEvents_ = function() {
       try {
         var data = await self.api('calculateGrowthScore', {});
         self.renderGrowthScore_(data);
-        self.showToast('Growth Score を更新しました', 'success');
+        self.showToast('成長スコアを更新しました', 'success');
       } catch (e) { self.showToast(e.message, 'error'); }
       recalcBtn.disabled = false;
       recalcBtn.textContent = '🔄 再計算';
