@@ -100,7 +100,7 @@ App.renderSettingsContent = function() {
     '</div>' +
 
     '<div class="accordion">' +
-      '<div class="accordion-header open" tabindex="0" aria-expanded="true" tabindex="0" aria-expanded="true" data-accordion="meta"><div class="flex-row gap-8"><span>Meta Developer</span><span class="status-badge ' + (hasMeta ? 'success' : 'warning') + '">' + (hasMeta ? '設定済み' : '未設定') + '</span></div><span class="accordion-chevron">›</span></div>' +
+      '<div class="accordion-header open" tabindex="0" aria-expanded="true" data-accordion="meta"><div class="flex-row gap-8"><span>Meta Developer</span><span class="status-badge ' + (hasMeta ? 'success' : 'warning') + '">' + (hasMeta ? '設定済み' : '未設定') + '</span></div><span class="accordion-chevron">›</span></div>' +
       '<div class="accordion-body open" data-accordion-body="meta"><div class="accordion-body-inner">' +
         '<label class="text-subheading">App ID</label><input type="text" id="appIdInput" class="input" value="' + this.escapeAttr(s.app_id || '') + '">' +
         '<label class="text-subheading mt-12">App Secret</label><input type="password" id="appSecretInput" class="input" value="" placeholder="' + this.escapeAttr(appSecretPlaceholder) + '">' +
@@ -110,7 +110,7 @@ App.renderSettingsContent = function() {
     '</div>' +
 
     '<div class="accordion">' +
-      '<div class="accordion-header" tabindex="0" aria-expanded="false" tabindex="0" aria-expanded="false" data-accordion="gemini"><div class="flex-row gap-8"><span>Gemini AI</span><span class="status-badge ' + (hasGemini ? 'success' : 'info') + '">' + (hasGemini ? '設定済み' : '任意') + '</span></div><span class="accordion-chevron">›</span></div>' +
+      '<div class="accordion-header" tabindex="0" aria-expanded="false" data-accordion="gemini"><div class="flex-row gap-8"><span>Gemini AI</span><span class="status-badge ' + (hasGemini ? 'success' : 'info') + '">' + (hasGemini ? '設定済み' : '任意') + '</span></div><span class="accordion-chevron">›</span></div>' +
       '<div class="accordion-body" data-accordion-body="gemini"><div class="accordion-body-inner">' +
         '<input type="password" id="geminiKeyInput" class="input" placeholder="' + this.escapeAttr(geminiPlaceholder) + '" value="">' +
         '<div class="btn-group mt-12"><a href="https://sordid-echinacea-374.notion.site/Gemini-API-1-313b3545dbc680cda9d2e2eed59028af" target="_blank" class="btn btn-secondary btn-small" style="text-decoration:none;">取得方法</a><button id="saveGeminiKeyBtn" class="btn btn-small">保存</button></div>' +

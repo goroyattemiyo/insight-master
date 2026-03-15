@@ -6,9 +6,9 @@ App.renderAnalyticsContent = function() {
   var tab = this.state.analyticsTab || 'posts';
   return '<div class="screen-content">' +
     '<div class="subtabs" data-group="analytics" role="tablist" aria-label="分析タブ">' +
-      '<button class="subtab' + (tab === 'posts' ? ' active' : '') + '" data-group="analytics" data-tab="posts" role="tab" aria-controls="analytics-tab-posts" role="tab" aria-controls="analytics-tab-posts">投稿分析</button>' +
-      '<button class="subtab' + (tab === 'time' ? ' active' : '') + '" data-group="analytics" data-tab="time" role="tab" aria-controls="analytics-tab-time" role="tab" aria-controls="analytics-tab-time">時間帯</button>' +
-      '<button class="subtab' + (tab === 'competitor' ? ' active' : '') + '" data-group="analytics" data-tab="competitor" role="tab" aria-controls="analytics-tab-competitor" role="tab" aria-controls="analytics-tab-competitor">競合</button>' +
+      '<button class="subtab' + (tab === 'posts' ? ' active' : '') + '" data-group="analytics" data-tab="posts" role="tab" aria-controls="analytics-tab-posts">投稿分析</button>' +
+      '<button class="subtab' + (tab === 'time' ? ' active' : '') + '" data-group="analytics" data-tab="time" role="tab" aria-controls="analytics-tab-time">時間帯</button>' +
+      '<button class="subtab' + (tab === 'competitor' ? ' active' : '') + '" data-group="analytics" data-tab="competitor" role="tab" aria-controls="analytics-tab-competitor">競合</button>' +
     '</div>' +
     '<div class="subtab-panels">' +
       '<div id="analytics-tab-posts" role="tabpanel" class="subtab-panel' + (tab === 'posts' ? ' active' : '') + '">' +

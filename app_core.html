@@ -1,4 +1,4 @@
-﻿<script>
+<script>
 var App = {
   state: {
     sheetId: null,
@@ -464,11 +464,11 @@ App.demoData_ = function(action, params) {
     case 'refinePostWithAI':
       return { refined: '【リファイン例】\n\n元の投稿をより魅力的にブラッシュアップしました。\n\n✅ フックを強化（冒頭で興味を引く）\n✅ 具体的な数字を追加\n✅ 最後に問いかけを追加\n\n※ デモモードのため実際のAIリファインは設定完了後にご利用いただけます。' };
     case 'saveDraft':
+      return { message: '下書きを保存しました（デモ）' };
     case 'deleteDraft':
       return { message: '削除しました（デモ）' };
     case 'toggleDraftStatus':
       return { message: 'ステータスを変更しました（デモ）' };
-      return { message: '下書きを保存しました（デモ）' };
     case 'getDrafts':
       return [
         { id: 'demo1', text: '朝5時起き30日チャレンジの結果。集中力が段違い。午前中に1日分の仕事が終わる。', status: 'draft', createdAt: new Date(Date.now() - 86400000).toISOString(), tags: 'AI生成' },
