@@ -20,6 +20,10 @@ App.renderSetupWizard_ = function(s, appUrl) {
       '<input type="password" id="wizardAppSecretInput" class="input" value="" placeholder="' + this.escapeAttr(appSecretPlaceholder) + '">' +
       '<label class="form-label mt-12">リダイレクトURL</label>' +
       '<div class="btn-group"><input type="text" id="wizardRedirectUrl" class="input" value="' + this.escapeAttr(appUrl) + '" readonly><button id="wizardCopyRedirectBtn" class="btn btn-secondary btn-small">コピー</button></div>' +
+      '<div style="margin-top:12px;">' +
+        '<a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener" class="btn btn-secondary btn-full" style="text-decoration:none;display:block;text-align:center;">🔗 Meta Developerコンソールを開く</a>' +
+        '<div style="font-size:11px;color:var(--text-tertiary);margin-top:6px;text-align:center;">上のリダイレクトURLをコピーしてから、コンソールで設定してください</div>' +
+      '</div>' +
       '<div class="btn-group mt-16"><button id="wizardStep1Next" class="btn btn-full">次へ</button></div>' +
     '</div>' +
     '<div class="wizard-step wizard-step-2" style="display:none">' +
