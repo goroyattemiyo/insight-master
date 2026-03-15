@@ -99,6 +99,7 @@ function getFollowerHistory(days) {
   var cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - (days || 7));
   var data = sheet.getDataRange().getValues();
+  var dates = [], counts = [], changes = [];
 
   for (var r = 1; r < data.length; r++) {
     if (!data[r][0]) continue;
