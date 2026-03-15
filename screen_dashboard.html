@@ -107,25 +107,25 @@ App.renderDashboardContent = function() {
       // ★FIX: 競合分析ボタン削除
     '</div>' +
     // ★FIX BUG-6: AI分析カードを独立（ネスト解消）
-    '<div class="card">' +
-      '<div class="card-title">🤖 AI分析</div>' +
+    '<details class="card collapsible-card">' +
+      '<summary class="card-title" style="cursor:pointer;user-select:none;">🤖 AI分析</summary>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
         '<button id="aiReportBtn" class="btn btn-small btn-secondary" style="flex:1;min-width:140px;">📊 分析レポート</button>' +
         '<button id="aiSuggestBtn" class="btn btn-small btn-secondary" style="flex:1;min-width:140px;">💡 改善提案</button>' +
       '</div>' +
       '<div id="aiDashboardResult" style="margin-top:12px;"></div>' +
-    '</div>' +
-    '<div class="card">' +
-      '<div class="flex-row gap-8 mb-12">' +
+    '</details>' +
+    '<details class="card collapsible-card">' +
+      '<summary class="flex-row gap-8 mb-12" style="cursor:pointer;user-select:none;">' +
         '<div class="card-title" style="flex:1;">📋 週次レポート</div>' +
-        '<button id="setupWeeklyTriggerBtn" class="btn btn-secondary btn-small">⏰ 自動生成</button>' +
-      '</div>' +
+        '<button id="setupWeeklyTriggerBtn" class="btn btn-secondary btn-small" onclick="event.stopPropagation()">⏰ 自動生成</button>' +
+      '</summary>' +
       '<div id="weeklyReportArea">' +
         '<button id="generateWeeklyBtn" class="btn btn-primary btn-full mb-8">📋 今週のレポートを生成</button>' +
         '<div id="weeklyReportContent"></div>' +
         '<div id="weeklyReportList" class="mt-12"></div>' +
       '</div>' +
-    '</div>' +
+    '</details>' +
   '</div>';
 };
 
