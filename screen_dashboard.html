@@ -133,9 +133,19 @@ App.loadDashboard = async function() {
   var self = this;
 
   var exitDemo = document.getElementById('exitDemoBtn');
-  if (exitDemo) exitDemo.addEventListener('click', function() {
+  if (exitDemo) exitDemo.addEventListener('click', async function() {
     self.state.demoMode = false;
     sessionStorage.removeItem('insightmaster_demo');
+    self.state.settings = {};
+    self.state.accounts = [];
+    self.state.activeAccount = null;
+    self.state.user = null;
+    self.clearApiCache();
+    try {
+      var freshSettings = await self.api('getSettings', {});
+      self.state.settings = freshSettings || {};
+    } catch (e) { self.state.settings = {}; }
+    self.shellRendered_ = false;
     self.showScreen('settings');
   });
   var closeBanner = document.getElementById('closeGeminiBanner');
