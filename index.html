@@ -91,7 +91,7 @@
   </div>
 <script>
   window.SERVER_DATA = <?!= serverData ?>;
-  window.APP_CONFIG = { deploymentUrl: '<?= deploymentUrl ?>' };
+  window.APP_CONFIG = { deploymentUrl: '<?= deploymentUrl ?>', appVersion: '<?= CONFIG.APP_VERSION ?>' };
   (function() {
     var appReady = false;
     var startedAt = Date.now();

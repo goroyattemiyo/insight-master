@@ -7,7 +7,8 @@ var CONFIG = {
   THREADS_AUTH_URL: 'https://threads.net/oauth/authorize',
   THREADS_TOKEN_URL: 'https://graph.threads.net/oauth/access_token',
   SCOPES: 'threads_basic,threads_manage_insights,threads_profile_discovery,threads_keyword_search',
-  GEMINI_API_BASE: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+  GEMINI_API_BASE: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+  APP_VERSION: 'v2.2.0'
 };
 
 function getDeploymentUrl() {
