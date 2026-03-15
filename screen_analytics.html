@@ -231,7 +231,7 @@ App.loadHeatmap_ = async function() {
   try {
     var data = await this.api('getTimeAnalysisData', {});
     if (!data || !data.hasData) {
-      c.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">時間帯分析データなし</div>'; return;
+      c.innerHTML = '<div style="text-align:center;padding:32px 20px;"><div style="font-size:48px;margin-bottom:12px;">📊</div><div style="color:var(--text-secondary);font-size:15px;margin-bottom:8px;">時間帯分析データがまだありません</div><div style="color:var(--text-tertiary);font-size:13px;margin-bottom:20px;">ダッシュボードで分析データを取得すると、<br>投稿に最適な時間帯がヒートマップで表示されます</div><button onclick="App.navigate(\'dashboard\')" style="background:var(--primary);color:#fff;border:none;border-radius:12px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;">ダッシュボードでデータ取得</button></div>'; return;
     }
     var days = ['日曜','月曜','火曜','水曜','木曜','金曜','土曜'];
     var allV = [];
