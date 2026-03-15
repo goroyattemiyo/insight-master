@@ -334,7 +334,7 @@ App.showImportModal_ = function() {
     var html = '<div class="card"><div class="text-subheading mb-8">Scan Result</div>';
     html += keys.map(function(k) {
       var item = foundData[k];
-      return '<label class="flex-row gap-8 mb-8"><input type="checkbox" class="import-check" data-key="' + k + '" checked><div style="flex:1;"><div class="text-subheading">' + (labels[k] || k) + '</div><div class="text-caption">' + self.escapeHtml(String(item.value || '').substring(0, 4) + '****') + '</div></div></label>';
+      return '<label class="flex-row gap-8 mb-8"><input type="checkbox" class="import-check" data-key="' + k + '" checked><div style="flex:1;"><div class="text-subheading">' + (labels[k] || k) + '</div><div class="text-caption">' + self.escapeHtml((['access_token','app_secret','gemini_api_key'].indexOf(k) !== -1) ? String(item.value || '').substring(0, 2) + '********' : String(item.value || '').substring(0, 8) + '****') + '</div></div></label>';
     }).join('');
     html += '</div>';
     preview.innerHTML = html;
@@ -367,6 +367,7 @@ App.showImportModal_ = function() {
       }
     });
     if (Object.keys(selected).length === 0) { self.showToast('取り込む項目を選択してください', 'error'); return; }
+    if (!confirm('選択した ' + Object.keys(selected).length + ' 件の設定を取り込みます。よろしいですか？')) return;
     try {
       applyBtn.disabled = true;
       await self.api('saveSettings', selected);

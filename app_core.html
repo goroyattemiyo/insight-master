@@ -20,9 +20,10 @@ var App = {
     createTab: 'ai'
   },
   init: async function() {
-    this.state.sessionToken = (window.SERVER_DATA && window.SERVER_DATA.sessionToken) || this.state.sessionToken;
+    this.state.sessionToken = (window.SERVER_DATA && window.SERVER_DATA.sessionToken) || localStorage.getItem('insight_master_session_token') || this.state.sessionToken;
     if (typeof SERVER_DATA !== 'undefined' && SERVER_DATA.sheetId) {
       this.state.sessionToken = SERVER_DATA.sessionToken || this.state.sessionToken;
+      if (this.state.sessionToken) localStorage.setItem('insight_master_session_token', this.state.sessionToken);
       this.state.sheetId = SERVER_DATA.sheetId;
       this.state.settings = SERVER_DATA.settings || {};
       this.state.user = SERVER_DATA.user || null;
