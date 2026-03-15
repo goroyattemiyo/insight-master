@@ -50,7 +50,7 @@ App.renderSettingsContent = function() {
   var hasGemini = !!s.hasGeminiKey;
   var appSecretPlaceholder = s.hasAppSecret ? '••••••••（設定済み）' : '';
   var geminiPlaceholder = s.hasGeminiKey ? '••••••••（設定済み）' : 'AIzaSy...';
-  var is設定済み = hasMeta || hasAuth;
+  var is設定済み = hasAuth;
 
   if (!is設定済み) {
     return '<div class="screen-content">' + this.renderSetupWizard_(s, appUrl) + '</div>';
@@ -210,6 +210,7 @@ App.bindSetupWizardEvents_ = function() {
   });
 
   if (self.state.settings && self.state.settings.hasAccessToken) showStep(3);
+  else if (self.state.settings && self.state.settings.app_id && self.state.settings.hasAppSecret) showStep(2);
 };
 
 App.bindSettingsEvents = function() {
