@@ -125,6 +125,13 @@ function getUserProfile(ss) {
       profilePicUrl: settings.profile_pic_url || ''
     };
   }
+  // キャッシュチェック（1時間有効）
+  var cache = CacheService.getUserCache();
+  var cacheKey = 'profile_' + (activeAccount.userId || '');
+  var cached = cache.get(cacheKey);
+  if (cached) {
+    try { return { success: true, user: JSON.parse(cached) }; } catch (ec) { /* ignore */ }
+  }
   var username = activeAccount.username || '';
   var profilePicUrl = activeAccount.profilePicUrl || '';
   try {
@@ -133,6 +140,7 @@ function getUserProfile(ss) {
     var fresh = fetchJson_(url);
     if (fresh.username) username = fresh.username;
     if (fresh.threads_profile_picture_url) profilePicUrl = fresh.threads_profile_picture_url;
+    cache.put(cacheKey, JSON.stringify({ username: username, profilePicUrl: profilePicUrl, userId: String(activeAccount.userId || '') }), 3600);
     try {
       saveSettings(ss, { profile_pic_url: profilePicUrl, username: username });
       updateAccountPic_(ss, activeAccount.userId || activeAccount.accountId, profilePicUrl);
