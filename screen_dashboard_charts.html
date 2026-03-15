@@ -25,6 +25,7 @@ App.renderDemographics_ = function(demo) {
 App.renderDemoBreakdown_ = function(data, maxItems) {
   var html = '';
   var genderMap = { M: '男性', F: '女性', U: '未設定' };
+  var cityMap = { 'Tokyo': '東京', 'Osaka': '大阪', 'Nagoya': '名古屋', 'Fukuoka': '福岡', 'Sapporo': '札幌', 'Yokohama': '横浜', 'Kobe': '神戸', 'Kyoto': '京都', 'Sendai': '仙台', 'Hiroshima': '広島', 'Chiba': '千葉', 'Saitama': 'さいたま', 'Kawasaki': '川崎', 'Kitakyushu': '北九州', 'Sagamihara': '相模原', 'Shizuoka': '静岡', 'Kumamoto': '熊本', 'Okayama': '岡山', 'Niigata': '新潟', 'Hamamatsu': '浜松', 'Kagoshima': '鹿児島', 'Matsuyama': '松山', 'Naha': '那覇', 'Bangkok': 'バンコク', 'Taipei': '台北', 'Seoul': 'ソウル', 'New York': 'ニューヨーク', 'Los Angeles': 'ロサンゼルス', 'San Francisco': 'サンフランシスコ', 'London': 'ロンドン', 'Singapore': 'シンガポール' };
   var items = [];
   var keys = Object.keys(data);
   for (var i = 0; i < keys.length; i++) {
@@ -37,7 +38,7 @@ App.renderDemoBreakdown_ = function(data, maxItems) {
   for (var i = 0; i < items.length; i++) total += items[i].value;
   for (var i = 0; i < items.length; i++) {
     var item = items[i];
-    var label = genderMap[item.label] || item.label;
+    var label = genderMap[item.label] || cityMap[item.label] || item.label;
     var pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
     var barWidth = maxVal > 0 ? Math.round((item.value / maxVal) * 100) : 0;
     html += '<div style="margin-bottom:6px;">';
