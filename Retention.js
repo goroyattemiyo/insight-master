@@ -1,4 +1,4 @@
-﻿// ===========================================
+// ===========================================
 // Retention.js - リテンション機能（Growth Score / チェックイン / 目標管理 / メール通知）
 // ===========================================
 
@@ -72,17 +72,20 @@ function calculateGrowthScore(ss) {
 
   // --- 2. ERトレンドスコア (0-25) ---
   var erTrendScore = 0;
+  var thisWeekPosts = [];
   try {
-    var thisWeekData = getAnalyticsData(ss, 7);
-    var lastWeekData = getAnalyticsData(ss, 14);
-    var thisWeekER = (thisWeekData && thisWeekData.summary) ? thisWeekData.summary.avgEngagementRate || 0 : 0;
-    var lastWeekPosts = (lastWeekData && lastWeekData.posts) ? lastWeekData.posts : [];
-    // 14日データから後半7日分を除外して前半7日のERを計算
-    var now = new Date();
-    var sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
-    var olderPosts = lastWeekPosts.filter(function(p) {
-      return new Date(p.timestamp) < sevenDaysAgo;
+    var allData = getAnalyticsData(ss, 14);
+    var allPosts = (allData && allData.posts) ? allData.posts : [];
+    var now_ = new Date();
+    var sevenDaysAgo_ = new Date(now_.getTime() - 7 * 86400000);
+    thisWeekPosts = allPosts.filter(function(p) { return new Date(p.timestamp) >= sevenDaysAgo_; });
+    var thisWeekEng = 0, thisWeekViews = 0;
+    thisWeekPosts.forEach(function(p) {
+      thisWeekEng += (p.likes || 0) + (p.replies || 0) + (p.reposts || 0) + (p.quotes || 0);
+      thisWeekViews += (p.views || 0);
     });
+    var thisWeekER = thisWeekViews > 0 ? thisWeekEng / thisWeekViews * 100 : 0;
+    var olderPosts = allPosts.filter(function(p) { return new Date(p.timestamp) < sevenDaysAgo_; });
     var prevER = 0;
     if (olderPosts.length > 0) {
       var totalEng = 0, totalViews = 0;
@@ -105,8 +108,7 @@ function calculateGrowthScore(ss) {
   // --- 3. 投稿頻度スコア (0-25) ---
   var frequencyScore = 0;
   try {
-    var weekAnalytics = getAnalyticsData(ss, 7);
-    var postCount = (weekAnalytics && weekAnalytics.summary) ? weekAnalytics.summary.totalPosts || 0 : 0;
+    var postCount = thisWeekPosts.length;
     // 0投稿=0, 7投稿(毎日)=25, 線形
     frequencyScore = Math.min(25, Math.round(postCount / 7 * 25));
   } catch (e) { Logger.log('GrowthScore frequency error: ' + e.message); }
