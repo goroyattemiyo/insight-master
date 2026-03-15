@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Followers.js - フォロワー推移記録・取得
  */
 
@@ -9,13 +9,13 @@ function recordDailyFollowers() {
   try {
     var ss = SpreadsheetApp.openById(getBoundSpreadsheetId());
     var sheet = ensureFollowerSheet_(ss);
-    var settings = getSettings();
+    var settings = getSettings(ss);
     if (!settings || !settings.access_token) return;
 
-    var accounts = getAccounts ? getAccounts() : [settings];
+    var accounts = getAccounts(ss) || [];
     accounts.forEach(function(acc) {
-      var token = acc.access_token || settings.access_token;
-      var accountId = acc.account_id || acc.user_id || '';
+      var token = acc.accessToken || settings.access_token;
+      var accountId = acc.accountId || acc.userId || '';
       if (!token || !accountId) return;
 
       try {
@@ -93,12 +93,12 @@ function getFollowerHistory(days) {
     return { dates: [], counts: [], changes: [] };
   }
 
-  var settings = getSettings();
-  var accountId = (settings && (settings.account_id || settings.user_id)) || '';
+  var settings = getSettings(ss);
+  var activeAccount = getActiveAccount(ss);
+  var accountId = activeAccount ? (activeAccount.accountId || '') : '';
   var cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - (days || 7));
   var data = sheet.getDataRange().getValues();
-  var dates = [], counts = [], changes = [];
 
   for (var r = 1; r < data.length; r++) {
     if (!data[r][0]) continue;
