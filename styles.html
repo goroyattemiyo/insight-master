@@ -317,6 +317,10 @@ a { color: inherit; text-decoration: none; }
 }
 .nav-item:active { transform: scale(0.92); }
 .nav-item.active { color: var(--primary); font-weight: 700; }
+.nav-item.active::after {
+  content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+  width: 20px; height: 3px; background: var(--primary); border-radius: 2px;
+}
 .nav-icon { font-size: 18px; }
 
 .subtabs {

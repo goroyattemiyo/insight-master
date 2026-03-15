@@ -18,6 +18,17 @@ App.loadGrowthScore_ = async function() {
 App.renderGrowthScore_ = function(data) {
   if (!data) return;
   var score = data.current || 0;
+  var gsArea = document.getElementById('growthScoreArea');
+  if (score === 0 && gsArea) {
+    var guide = document.getElementById('gsGuide');
+    if (!guide) {
+      var d = document.createElement('div');
+      d.id = 'gsGuide';
+      d.style.cssText = 'text-align:center;padding:8px 12px;margin-top:8px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1e40af;';
+      d.innerHTML = '💡 投稿データを取得すると成長スコアが計算されます。<br>まずは「🔄 再計算」を押してみましょう！';
+      gsArea.appendChild(d);
+    }
+  }
   var change = data.change || 0;
   var bd = data.breakdown || {};
 
@@ -87,6 +98,18 @@ App.loadCheckIn_ = async function() {
 
 App.renderCheckIn_ = function(data) {
   if (!data) return;
+  var score = data.current || 0;
+  var gsArea = document.getElementById('growthScoreArea');
+  if (score === 0 && gsArea) {
+    var guide = document.getElementById('gsGuide');
+    if (!guide) {
+      var d = document.createElement('div');
+      d.id = 'gsGuide';
+      d.style.cssText = 'text-align:center;padding:8px 12px;margin-top:8px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1e40af;';
+      d.innerHTML = '💡 投稿データを取得すると成長スコアが計算されます。<br>まずは「🔄 再計算」を押してみましょう！';
+      gsArea.appendChild(d);
+    }
+  }
 
   var msgEl = document.getElementById('checkInMessage');
   if (msgEl) msgEl.textContent = data.todayMessage || '今日も頑張りましょう！';
