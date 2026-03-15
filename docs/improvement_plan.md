@@ -182,12 +182,12 @@ Write-Host "docs/improvement_plan.md saved"
 
 ## 修正順序チェックリスト
 
-- [ ] BUG-1: Followers.js getSettings/getAccounts に ss 追加
-- [ ] BUG-2: Followers.js getFollowerHistory に ss 追加
-- [ ] BUG-3: Code.js getUserProfile 呼び出しの push 確認
-- [ ] 改善-6: Auth.js getUserProfile にキャッシュ追加
-- [ ] BUG-4: screen_dashboard.html canvas 重複属性削除
-- [ ] BUG-5: screen_analytics.html タブ重複属性削除
-- [ ] BUG-6: screen_settings.html アコーディオン重複属性削除
-- [ ] 改善-2: app_core.html 到達不能コード修正
+- [x] BUG-1: Followers.js getSettings/getAccounts に ss 追加 (6bbae3e)
+- [x] BUG-2: Followers.js getFollowerHistory に ss 追加 (6bbae3e)
+- [x] BUG-3: Code.js getUserProfile 呼び出し確認済み (GitHub反映済み)
+- [x] 改善-6: Auth.js getUserProfile にキャッシュ追加 (7175ccc)
+- [x] BUG-4: screen_dashboard.html canvas 重複属性削除 (4ca9495)
+- [x] BUG-5: screen_analytics.html タブ重複属性削除 (4ca9495)
+- [x] BUG-6: screen_settings.html アコーディオン重複属性削除 (4ca9495)
+- [x] 改善-2: app_core.html 到達不能コード修正 (4ca9495)
 - [ ] 改善-3〜14: UX改善（次フェーズ）
